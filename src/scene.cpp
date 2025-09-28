@@ -239,9 +239,8 @@ void Scene::processModel(vector<Geom> &geoms, const json &jsonModel, std::unorde
             tinygltf::Buffer indexBuffer = model.buffers[indexBufferView.buffer];
 
             // byte data is based on componentType in accessors. Assume right now we are using 5123, which is ushort16
-            uint16_t* indexData = reinterpret_cast<uint16_t*>(
-                indexBuffer.data.data() + indexBufferView.byteOffset + indexAccessor.byteOffset
-                );
+            // (9/27 Note: Haha, remember when I assumed ushort16? 2^16 = 65k, which does NOT work for 100k tri Stanford dragon!)
+            uint8_t* indexData = indexBuffer.data.data() + indexBufferView.byteOffset + indexAccessor.byteOffset;
 
 
             std::map<string, int>::const_iterator it = primitive.attributes.find("POSITION");
@@ -262,11 +261,29 @@ void Scene::processModel(vector<Geom> &geoms, const json &jsonModel, std::unorde
 
             for (int i = 0; i < indexAccessor.count; i += 3)
             {
-                // This is an index we can use directly into our position data.
-                // Similarly, we can use this for our normals, etc.
                 int i0 = indexData[i];
                 int i1 = indexData[i + 1];
                 int i2 = indexData[i + 2];
+
+                // Ugly reinterpret cast on the fly, but necessary!
+                if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                {
+                    uint16_t* ushortIndexData = reinterpret_cast<uint16_t*>(indexData);
+                    i0 = ushortIndexData[i];
+                    i1 = ushortIndexData[i + 1];
+                    i2 = ushortIndexData[i + 2];
+                }
+                if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+                {
+                    uint32_t* uintIndexData = reinterpret_cast<uint32_t*>(indexData);
+                    i0 = uintIndexData[i];
+                    i1 = uintIndexData[i + 1];
+                    i2 = uintIndexData[i + 2];
+                }
+
+                // This is an index we can use directly into our position data.
+                // Similarly, we can use this for our normals, etc.
+
 
                 glm::vec3 v1 = glm::vec3(positionData[i0 * 3], positionData[i0 * 3 + 1], positionData[i0 * 3 + 2]);
                 glm::vec3 v2 = glm::vec3(positionData[i1 * 3], positionData[i1 * 3 + 1], positionData[i1 * 3 + 2]);
@@ -311,7 +328,7 @@ void Scene::buildBVH()
     int nodesUsed = 1;
 
     int n = triangles.size();
-    bvhNodes = std::vector<BVHNode>(n);
+    bvhNodes = std::vector<BVHNode>(2 * n - 1);
 
     // Layer of index indirection
     for (int i = 0; i < n; i++)

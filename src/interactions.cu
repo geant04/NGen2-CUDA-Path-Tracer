@@ -150,13 +150,13 @@ __host__ __device__ void sampleRay(
 
     if (pathSegment.medium != VACUUM)
     {
-        float scatteringDistance = 1.0f;
+        float scatteringDistance = 0.8f;
         float scatteringCoefficient = 1.0f / scatteringDistance;
         float weight = 1.0f;
         float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
 
         float absorptionAtDistance = 5.0f;
-        glm::vec3 absorptionColor = glm::vec3(0.85f, 0.35f, 0.35f);
+        glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
         glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
 
         // RichieSams has us create a "scatter event".

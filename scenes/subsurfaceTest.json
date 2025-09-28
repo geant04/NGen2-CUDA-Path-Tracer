@@ -192,8 +192,8 @@
         {
             "TYPE":"mesh",
             "MATERIAL":"subsurface_normal",
-            "FILE_PATH":"../scenes/models/Avocado.glb",
-            "TRANS":[0.0,2.0,0.0],
+            "FILE_PATH":"../scenes/models/expensiveDragon.glb",
+            "TRANS":[0.0,1.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0, 3.0, 3.0]
         }
