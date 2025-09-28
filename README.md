@@ -12,6 +12,11 @@ CUDA Path Tracer
 project, and we will not be able to grade you without a good README.
 
 
+<img src="img/sssDragon.png" w="100">
+<br>
+
+*Cool dragon picture for now. 871k tris with a fun in the works subsurf model.*
+
 ## Ge Pathtracer BRDF Model
 ### Diffuse BRDF + Microfacet Specular GGX
 
@@ -30,6 +35,15 @@ The refraction allows us to enter the transmissive surface and bend the incoming
 
 Using a transmissive term, I believe it's possible to easily include this into the existing BRDF model, simply using another probability weight to choose whether or not for a given materia we use BRDF or BTDF. More on this later if I get to it, but will instead work on gltf loading instead.
 
+### BRDF to BSSSRDF? Naive Subsurface Scattering
+Following this [awesome 8 year old blog on subsurface scattering](https://computergraphics.stackexchange.com/questions/5214/a-recent-approach-for-subsurface-scattering), I was able to implement a very naive form of path-traced subsurface scattering by keeping track of when a sample enters a speciifc medium. In this case, if our material has subsurface scattering properties, we say that within has an isotropic medium that will handle sampling BRDF evaluation depending on its distance traveled within its random walk.
+
+<img src="img/sssDragon.png" w="100">
+<br>
+
+The results fairly match the example images in the blog, but I'm not satisfied by how dark it is due to absorbed energy I assume, and also the inefficiencies that come with brute-forcing the subsurface scattering. I hope to reconvert this model to instead use Christensen and Burley's 2016 SSS diffusion profile that relies geometry sampling instead, allowing just a single bounce and easier integration into my diffuse BRDF model.
+
+
 ## Various Goodies
 ### Depth of Field
 TO DO: put in stuff
@@ -40,11 +54,26 @@ TO DO: put in stuff
 gltf is an awesome model format. It represents a given scene by a tree hierarchy, starting from the scene to nodes with children that have primitives. Our goal is to convert these primitives into triangles that our pathtracing intersection test can detect.
 
 ### Using the tinyGLTF loader
-Figuring this out right now.
+Nowadays, ```.objs``` are no longer the common file form of representing 3D objects. Instead, companies use FBX, USD, or even proprietary formats. More common is also the ```.gltf format```.
+
+GLTF/GLBs are comprised of a scene representation, housing children that eventually have primitives. Our goal is to read primitive indices and position information, stored through accessors that store bufferViews for these respective buffers of information. GLBs have specific formats for representing their data - for instance, a smaller GLTF can use a 16 bit ushort to store indices info if there are less than 65k indices, while something larger like the Stanford dragon may require the full 32 bits. Using a library like tinyGLTF can greatly simplify gltf importing for us by reading these files and providing parsed information in cpp.
+
+If I get there, I'll write about acquiring normal and texture info, and then sampling it. Haven't gotten there yet.
 
 
-### The non-existent BVH if it works
 
+### BVH
+Followed Jacco Bikker's guide to building BVHs. On the teapot test model from Morgan Mcguire's Casual-Effects website with 15k tris, I was able to see a **24x milisecond reduction** from 292.196 to an amazing 12.774.
+<table>
+<tr>
+<th>No BVH: 292.196ms</th>
+<th>With BVH: 12.774ms!!!</th>
+</tr>
+<tr>
+<td><img src="img/teapotNoBVH.png"></td>
+<td><img src="img/teapotWithBVH.png"></td>
+</tr>
+</table>
 
 Feedback
 - The sphere intersection normal flipping code should be removed.
