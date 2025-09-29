@@ -167,21 +167,37 @@ __host__ __device__ void sampleRay(
 
         glm::vec3 specularDir = glm::reflect(inDirection, microNormal);
 
-        float cosTheta = glm::max(dot(normal, wo), 0.0f);
+        float cosTheta = glm::max(dot(microNormal, wo), 0.0f);
         float f = fresnelDielectric(cosTheta, 1.0f, 1.45f);
 
-        bool isSpecularBounce = p < f;
+        // metallic F experiments... YA BABY...
+        glm::vec3 R0 = glm::mix(glm::vec3(0.04f), m.color, m.metallic);
+        glm::vec3 metallicF = fresnelSchlick(R0, cosTheta);
+        float metallicFavg = (0.2126f * metallicF.r + 0.7152f * metallicF.g + 0.0722f * metallicF.b);
+
+        bool isSpecularBounce = p < glm::mix(f, metallicFavg, m.metallic);
+
+        // Important brdf set. Don't remove this...
+        brdf = glm::vec3(1.0f);
+        if (m.metallic > 0.0f)
+        {
+            // Artifically set this true... 
+            // Seems sus, but we'll work with it for now.
+            // Unfortunately, this means our setup won't allow "half metal" materials to exist.
+            isSpecularBounce = true; 
+            brdf *= metallicF;
+        }
 
         wi = glm::mix(
             diffuse_wi, 
             specularDir, 
             isSpecularBounce);
-        brdf = glm::mix(
+        brdf *= glm::mix(
             diffuseBRDF(wo, wi, normal, m), 
             // So this is most likely not correct at all, BUT:
             // Not multiplying specularBRDF with F so far gets me the closest result to Blender.
             // Now, I don't know why, but just an observation.
-            specularBRDF(wo, wi, normal, microNormal, m), 
+            dielectricSpecularBRDF(wo, wi, normal, microNormal, m), 
             isSpecularBounce);
 
         intersectOffset = normal * epsilon;
@@ -445,7 +461,7 @@ __host__ __device__ float SmithGGX(
     return out;
 }
 
-__host__ __device__ glm::vec3 specularBRDF(
+__host__ __device__ glm::vec3 dielectricSpecularBRDF(
     glm::vec3 wo,
     glm::vec3 wi,
     glm::vec3 normal,
@@ -453,9 +469,6 @@ __host__ __device__ glm::vec3 specularBRDF(
     const Material &m
 )
 {
-    glm::vec3 half = glm::normalize(wo + wi);
-        
-    float nDotH = glm::max(dot(normal, half), 0.0f);
     float nDotI = glm::max(dot(normal, wi), 0.0f);
     float nDotO = glm::max(dot(normal, wo), 0.0f);
     float nDotM = glm::max(dot(normal, microNormal), 0.0f);
@@ -467,22 +480,12 @@ __host__ __device__ glm::vec3 specularBRDF(
     float alpha2 = glm::max(alpha * alpha, 0.02f);
 
     float G = glm::clamp(SmithGGX(wo, wi, microNormal, alpha2), 0.0f, 1.05f);
-       
-    glm::vec3 albedo = m.color;
-    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, m.metallic);
-    
-    glm::vec3 metallicF = fresnelSchlick(F0, glm::max(dot(wi, half), 0.0f));
-    // I hard coded the IOR of plastic,which is 1.460, into the third arg of fresnelDielectric
-    // glm::vec3 dielectricF = glm::clamp(glm::vec3(fresnelDielectric(mDotI, 1.0f, 1.460f)), 0.0f, 1.0f); 
-
-
-    // yeah idk man lol
-    glm::vec3 dielectricF = glm::vec3(fresnelDielectric(nDotO, 1.0f, 1.45f));
-    glm::vec3 F = dielectricF;
 
     // Adapted this from Schutte's specular BRDF simplification
     // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
-    return glm::vec3(G) * abs(dot(wo, microNormal)) / (nDotO * nDotM + 0.001f);
+    // Evil clamping trick not by Schutte. Cool specular highlights take much longer to appear
+    // as a consequence, but takes care of nasty fireflies.
+    return glm::clamp(glm::vec3(G) * abs(dot(wo, microNormal)) / (nDotO * nDotM + 0.001f), 0.0f, 1.0f);
 }
 
 __host__ __device__ glm::vec3 diffuseBRDF(

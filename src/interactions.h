@@ -74,7 +74,7 @@ __host__ __device__ void transmitMediumBRDF(
     thrust::uniform_real_distribution<float> &u01
 );
 
-__host__ __device__ glm::vec3 specularBRDF(
+__host__ __device__ glm::vec3 dielectricSpecularBRDF(
     glm::vec3 wo,
     glm::vec3 wi,
     glm::vec3 normal,
