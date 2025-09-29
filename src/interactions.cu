@@ -207,14 +207,16 @@ __host__ __device__ void sampleRay(
         wi = -wi;
 
         pathSegment.medium = ISOTROPIC;
-        pathSegment.ray.origin = intersect + wi * 0.001f;
+        pathSegment.ray.origin = intersect + wi * 0.01f;
         pathSegment.ray.direction = wi;
 
         return;
     }
     else if (m.hasRefractive)
     {
-        glm::vec3 diffuseWi = glm::mix(normal, diffuseNormal, m.roughness);
+        // glm::vec3 diffuseWi = glm::mix(normal, diffuseNormal, m.roughness);
+        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
+        normal = microNormal;
 
         float cosThetaI = dot(normal, wo);        
         float etaA = 1.0f;
@@ -234,8 +236,8 @@ __host__ __device__ void sampleRay(
         if (rand < f)
         {
             wi = glm::reflect(glm::normalize(-wo), normal);
-            wi = glm::mix(wi, diffuseWi, m.roughness);
-            brdf *= f;
+            //wi = glm::mix(wi, diffuseWi, m.roughness);
+            //brdf *= f;
         }
         else
         {
@@ -247,7 +249,7 @@ __host__ __device__ void sampleRay(
             float iorRatio = (entering) ? eta : 1.0f / eta;
 
             wi = glm::refract(inDirection, (entering) ? normal : -normal, iorRatio);
-            wi = glm::mix(wi, (entering) ? -diffuseNormal : diffuseNormal, m.roughness);
+            //wi = glm::mix(wi, (entering) ? -diffuseNormal : diffuseNormal, m.roughness);
 
             if (length(wi) < 0.01f)
             {
@@ -363,7 +365,7 @@ __host__ __device__ void transmitMediumBRDF(
     thrust::uniform_real_distribution<float> &u01
 )
 {
-    float scatteringDistance = 0.4f;
+    float scatteringDistance = 1.0f;
     float scatteringCoefficient = 1.0f / scatteringDistance;
     float weight = 1.0f;
     float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);

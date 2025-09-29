@@ -24,7 +24,22 @@ For my BRDF, I use the Cook-Torrance model to simulate diffuse and specular surf
 
 Diffuse sampling uses the uniform cosine-weighted hemisphere sampling for wi, while I use the GGX NDF to sample the specular direction such that roughness now affects the lobe of samples. Upon dividing out BRDF/pdf, the diffuse weight evaluates to just material albedo.
 
-For specular BRDF, I use the GGX microfacet model. Referencing Joe Schutte's article on [sampling with GGX](https://schuttejoe.github.io/post/ggximportancesamplingpart1/) and Walter's paper on weighting samples themselves, we can observe that the returned reflectance can be simplified to F * G, divided by pdf of outgoing rays correctly being in the hemisphere. Through simplification, we just evaluate the specular weight as F * G for now as a "close-enough" approximation, unfortunately. Unless I get some time to figure out how to accurately implement the rest of the model, which would be (D * G * F) / (4.0f * cos_wo * cos_wi).
+For specular BRDF, I use the GGX microfacet model. Referencing Joe Schutte's article on [sampling with GGX](https://schuttejoe.github.io/post/ggximportancesamplingpart1/) and Walter's paper on weighting samples themselves, we can observe that the returned reflectance can be simplified to F * G, divided by pdf of outgoing rays correctly being in the hemisphere. This becomes much further reduced.
+
+(TO DO: insert most up to date details regarding my implementation thus far.)
+
+<table>
+<tr>
+<td><img src="img/noRough.png"></td>
+<td><img src="img/midRough.png"></td>
+<td><img src="img/highRough.png"></td>
+</tr>
+<td><img src="img/noRoughMetal.png"></td>
+<td><img src="img/midRoughMetal.png"></td>
+<td><img src="img/highRoughMetal.png"></td>
+<tr>
+</tr>
+</table>
 
 ### Extending the BRDF to include transmissive surfaces
 I haven't done this yet, but I plan to extend my BRDF model to also include BTDF, creating an ultimate BSDF model! I aim to also reference Joe Schutte's implement of the Disney BSDF to achieve this.
@@ -34,6 +49,13 @@ So while I haven't done this yet, I DID implement BTDF, being able to render a g
 The refraction allows us to enter the transmissive surface and bend the incoming ray direction by Snell's law, meaning that for a given material we need to classify its entering and exiting IORs. The reflection, on the other hand, is a simple reflect of the incoming ray by the normal. By weighting the power of each refracted and reflected ray by its fresnel Schlick approximation, we are able to have reflections off grazing angles, while most of the ball becomes transmissive.
 
 Using a transmissive term, I believe it's possible to easily include this into the existing BRDF model, simply using another probability weight to choose whether or not for a given materia we use BRDF or BTDF. More on this later if I get to it, but will instead work on gltf loading instead.
+
+<table>
+<tr>
+<td><img src="img/noRoughGlass.png"></td>
+<td><img src="img/midRoughGlass.png"></td>
+<td><img src="img/highRoughGlass.png"></td>
+</table>
 
 ### BRDF to BSSSRDF? Naive Subsurface Scattering
 Following this [awesome 8 year old blog on subsurface scattering](https://computergraphics.stackexchange.com/questions/5214/a-recent-approach-for-subsurface-scattering), I was able to implement a very naive form of path-traced subsurface scattering by keeping track of when a sample enters a speciifc medium. In this case, if our material has subsurface scattering properties, we say that within has an isotropic medium that will handle sampling BRDF evaluation depending on its distance traveled within its random walk.

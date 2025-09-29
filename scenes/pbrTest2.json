@@ -17,7 +17,7 @@
             "TYPE":"Transmissive",
             "RGB":[0.98, 0.98, 0.98],
             "IOR": 1.44,
-            "ROUGHNESS": 0.0
+            "ROUGHNESS": 1.0
         },
         "transmissive_blue":
         {
@@ -46,8 +46,8 @@
         {
             "TYPE":"Specular",
             "RGB":[0.35, 0.35, 0.98],
-            "ROUGHNESS":0.5,
-            "METALLIC":0.0
+            "ROUGHNESS":0.0,
+            "METALLIC":1.0
         },
         "diffuse_lilac":
         {
@@ -198,7 +198,7 @@
         },
         {
             "TYPE":"mesh",
-            "MATERIAL":"specular_lilac",
+            "MATERIAL":"transmissive_white",
             "FILE_PATH":"../scenes/models/dragon.glb",
             "TRANS":[0.0,1.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
