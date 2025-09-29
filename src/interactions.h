@@ -55,6 +55,25 @@ __host__ __device__ glm::vec3 diffuseBRDF(
     const Material &m
 );
 
+__host__ __device__ void transmitMediumDiffusionBRDF(
+    PathSegment &pathSegment,
+    glm::vec3 intersect,
+    glm::vec3 normal,
+    float t,
+    const Material &m,
+    thrust::default_random_engine &rng,
+    thrust::uniform_real_distribution<float> &u01
+);
+
+__host__ __device__ void transmitMediumBRDF(
+    PathSegment &pathSegment,
+    glm::vec3 intersect,
+    glm::vec3 normal,
+    float t,
+    thrust::default_random_engine &rng,
+    thrust::uniform_real_distribution<float> &u01
+);
+
 __host__ __device__ glm::vec3 specularBRDF(
     glm::vec3 wo,
     glm::vec3 wi,

@@ -4,6 +4,8 @@
 
 #include <thrust/random.h>
 
+#define DIFFUSION_PROFILE 1
+
 __host__ __device__ glm::vec3 calculateHemisphereDirection(glm::vec3 normal, float cosTheta, float phi)
 {
     float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
@@ -150,35 +152,10 @@ __host__ __device__ void sampleRay(
 
     if (pathSegment.medium != VACUUM)
     {
-        float scatteringDistance = 0.8f;
-        float scatteringCoefficient = 1.0f / scatteringDistance;
-        float weight = 1.0f;
-        float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
-
-        float absorptionAtDistance = 5.0f;
-        glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
-        glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
-
-        // RichieSams has us create a "scatter event".
-        if (distance < t)
-        {
-            glm::vec3 transmission = isotropicTransmission(absorptionCoefficient, distance);
-            pathSegment.color *= transmission * weight;
-
-            pathSegment.ray.origin += pathSegment.ray.direction * distance;
-            pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
-        }
-        // No scatter event, we've hit the surface and we're ready to leave!
-        else
-        {
-            glm::vec3 transmission = exp(-absorptionCoefficient * t);
-            pathSegment.color *= transmission;
-
-            // No need to change ray direction, should be ok
-            pathSegment.medium = VACUUM;
-            pathSegment.ray.origin = intersect + normal * 0.001f;
-        }
-
+#if !DIFFUSION_PROFILE
+#else
+        transmitMediumBRDF(pathSegment, intersect, normal, t, rng, u01);
+#endif
         return;
     }
 
@@ -206,8 +183,7 @@ __host__ __device__ void sampleRay(
     }
     else if (m.subsurface > 0.0f)
     {
-        // Refract into material thing... idk man
-        wi = -diffuse_wi;
+        wi = -wi;
 
         pathSegment.medium = ISOTROPIC;
         pathSegment.ray.origin = intersect + wi * 0.001f;
@@ -229,21 +205,16 @@ __host__ __device__ void sampleRay(
         R0 = R0 * R0;
         glm::vec3 F = fresnelSchlick(R0, abs(cosThetaI));
 
+        float f = fresnelDielectric(cosThetaI, etaA, etaB);
+
         // no tint, do this for now
         brdf = glm::vec3(1.0f);
 
-        if (rand < length(F))
+        if (rand < f)
         {
             wi = glm::reflect(glm::normalize(-wo), normal);
             wi = glm::mix(wi, diffuseWi, m.roughness);
-            
-            // awesome artificial roughness trick from seb. lague
-            float cosTheta = abs(dot(normal, wi));
-            glm::vec3 R0 = glm::vec3((etaA - etaB) / (etaA + etaB));
-            R0 = R0 * R0;
-            glm::vec3 F = fresnelSchlick(R0, abs(cosThetaI));
-
-            // brdf = 2.0f * F;
+            brdf *= f;
         }
         else
         {
@@ -261,29 +232,26 @@ __host__ __device__ void sampleRay(
             {
                 wi = glm::reflect(inDirection, normal);
             }
-
-            // float F = fresnelDielectric(abs(cosThetaI), etaA, etaB);
-            float cosTheta = abs(dot(normal, wi));
-            glm::vec3 R0 = glm::vec3((etaA - etaB) / (etaA + etaB));
-            R0 = R0 * R0;
-            glm::vec3 F = fresnelSchlick(R0, abs(cosThetaI));
-
-            brdf = glm::vec3(1.0f);
-
-            if (!entering) 
+#if 1
+            if (!entering)
             {
-                float scatterDistance = sqrt(t);
-                float absorptionMultiplier = 3.0f;
-                glm::vec3 absorptionTint = exp(-scatterDistance * m.color * absorptionMultiplier);
+                float scatterDistance = t;
+                float absorptionMultiplier = 0.3f;
+                glm::vec3 absorptionTint = exp(-scatterDistance * glm::vec3(1.0f, 0.0f, 0.0f) * absorptionMultiplier);
 
                 brdf *= absorptionTint;
             }
+#endif
 
-            // brdf = glm::vec3(1.0f - F);
+            brdf *= 1.0f - f;
         }
 
-        // Figure out why we need this hack... I suspect something about intersecting at a weird/shallow angle
-        // epsilon = 0.05f;
+        pathSegment.ray.direction = wi;
+        pathSegment.color *= brdf;
+        pathSegment.ray.origin = intersect + wi * 0.001f;
+
+        pathSegment.remainingBounces -= 1;
+        return;
     }
     else
     {
@@ -304,31 +272,6 @@ __host__ __device__ void sampleRay(
     pathSegment.remainingBounces -= 1;
 }
 
-__host__ __device__ float GGXDistribution(float alpha, float cosTheta)
-{
-    // https://agraphicsguynotes.com/posts/sample_microfacet_brdf/#one-extra-step
-    float alpha2 = alpha * alpha;
-    float cos2Theta = cosTheta * cosTheta;
-    float denom = (alpha2 - 1.0f) * cos2Theta + 1.0f;
-
-    return alpha2 / (PI * denom * denom);
-}
-
-__host__ __device__ float SmithGGX(
-    float nDotI,
-    float nDotO,
-    float a2
-)
-{
-    // Based on implementation from https://schuttejoe.github.io/post/ggximportancesamplingpart1/,
-    // https://media.gdcvault.com/gdc2017/Presentations/Hammon_Earl_PBR_Diffuse_Lighting.pdf, this too maybe.
-    // This combines SmithGGX(i, m) * SmithGGX(o, m)
-    float denomIn = nDotI * sqrt(a2 + (1.0f - a2) * (nDotI * nDotI));
-    float denomOut = nDotO * sqrt(a2 + (1.0f - a2) * (nDotO * nDotO));
-
-    return 2.0f * nDotI * nDotO / (denomIn + denomOut);
-}
-
 __host__ __device__ glm::vec3 fresnelSchlick(glm::vec3 F0, float cosTheta)
 {
     return F0 + (glm::vec3(1.0f) - F0) * powf(1.0f - cosTheta, 5.0f);
@@ -341,7 +284,9 @@ __host__ __device__ float fresnelDielectric(float cosThetaI, float etaI, float e
 
     // Potentially swap indices of refraction
     if(cosThetaI < 0.0f) {
-        std::swap(etaI, etaT);
+        float temp = etaI;
+        etaI = etaT;
+        etaT = temp;
         cosThetaI = -cosThetaI;
     }
 
@@ -350,7 +295,7 @@ __host__ __device__ float fresnelDielectric(float cosThetaI, float etaI, float e
     float sinThetaT = etaI / etaT * sinThetaI;
 
     // Check for total internal reflection
-    if(sinThetaT >= 1) {
+    if(sinThetaT > 0.998f) {
         return 1;
     }
 
@@ -358,7 +303,7 @@ __host__ __device__ float fresnelDielectric(float cosThetaI, float etaI, float e
 
     float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) / ((etaT * cosThetaI) + (etaI * cosThetaT));
     float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) / ((etaI * cosThetaI) + (etaT * cosThetaT));
-    return (Rparl * Rparl + Rperp * Rperp) / 2;
+    return (Rparl * Rparl + Rperp * Rperp) / 2.0f;
 }
 
 __host__ __device__ glm::vec3 specularBTDF(
@@ -374,6 +319,86 @@ __host__ __device__ glm::vec3 specularBTDF(
     return glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
+__host__ __device__ void transmitMediumDiffusionBRDF(
+    PathSegment &pathSegment,
+    glm::vec3 intersect,
+    glm::vec3 normal,
+    float t,
+    const Material &m,
+    thrust::default_random_engine &rng,
+    thrust::uniform_real_distribution<float> &u01
+)
+{
+    float scatteringDistance = 0.8f;
+
+    return;
+}
+
+__host__ __device__ void transmitMediumBRDF(
+    PathSegment &pathSegment,
+    glm::vec3 intersect,
+    glm::vec3 normal,
+    float t,
+    thrust::default_random_engine &rng,
+    thrust::uniform_real_distribution<float> &u01
+)
+{
+    float scatteringDistance = 0.4f;
+    float scatteringCoefficient = 1.0f / scatteringDistance;
+    float weight = 1.0f;
+    float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
+
+    float absorptionAtDistance = 5.0f;
+    glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
+    glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
+
+    // RichieSams has us create a "scatter event".
+    if (distance < t)
+    {
+        glm::vec3 transmission = isotropicTransmission(absorptionCoefficient, distance);
+        pathSegment.color *= transmission * weight;
+
+        pathSegment.ray.origin += pathSegment.ray.direction * distance;
+        pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
+    }
+    // No scatter event, we've hit the surface and we're ready to leave!
+    else
+    {
+        glm::vec3 transmission = exp(-absorptionCoefficient * t);
+        pathSegment.color *= transmission;
+
+        // No need to change ray direction, should be ok
+        pathSegment.medium = VACUUM;
+        pathSegment.ray.origin = intersect + normal * 0.001f;
+    }
+
+    return;
+}
+
+__host__ __device__ float GGXDistribution(float a2, float cosTheta)
+{
+    // https://agraphicsguynotes.com/posts/sample_microfacet_brdf/#one-extra-step
+    float cos2Theta = cosTheta * cosTheta;
+    float denom = (a2 - 1.0f) * cos2Theta + 1.0f;
+
+    return a2 / (PI * denom * denom);
+}
+
+__host__ __device__ float SmithGGX(
+    float nDotI,
+    float nDotO,
+    float a2
+)
+{
+    // Based on implementation from https://schuttejoe.github.io/post/ggximportancesamplingpart1/,
+    // https://media.gdcvault.com/gdc2017/Presentations/Hammon_Earl_PBR_Diffuse_Lighting.pdf, this too maybe.
+    
+    // This combines SmithGGX(i, m) * SmithGGX(o, m)
+    float denomIn = nDotI * sqrt(a2 + (1.0f - a2) * (nDotI * nDotI));
+    float denomOut = nDotO * sqrt(a2 + (1.0f - a2) * (nDotO * nDotO));
+
+    return (2.0f * nDotI) / denomIn + (2.0f * nDotO) / denomOut;
+}
 
 __host__ __device__ glm::vec3 specularBRDF(
     glm::vec3 wo,
@@ -386,16 +411,23 @@ __host__ __device__ glm::vec3 specularBRDF(
     glm::vec3 half = glm::normalize(wo + wi);
         
     float nDotH = glm::max(dot(normal, half), 0.0f);
-    float nDotI = glm::max(dot(normal, wo), 0.0f);
-    float nDotO = glm::max(dot(normal, wi), 0.0f);
+    float nDotI = glm::max(dot(normal, wi), 0.0f);
+    float nDotO = glm::max(dot(normal, wo), 0.0f);
+    float nDotM = glm::max(dot(normal, microNormal), 0.0f);
+
     float mDotI = glm::max(dot(microNormal,wi), 0.0f);
+
+    float roughness = glm::max(m.roughness, 0.0001f);
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
 
     if (dot(wi, microNormal) < 0.0f)
     {
         mDotI = -mDotI;
     }
 
-    float G = SmithGGX(nDotI, nDotO, m.roughness);
+    float D = GGXDistribution(alpha2, nDotH);
+    float G = SmithGGX(nDotI, nDotO, alpha2);
        
     glm::vec3 albedo = m.color;
     glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, m.metallic);
@@ -404,12 +436,17 @@ __host__ __device__ glm::vec3 specularBRDF(
     // I hard coded the IOR of plastic,which is 1.460, into the third arg of fresnelDielectric
     glm::vec3 dielectricF = glm::clamp(glm::vec3(fresnelDielectric(mDotI, 1.0f, 1.460f)), 0.0f, 1.0f); 
 
-    glm::vec3 F = glm::mix(dielectricF, metallicF, m.metallic);
+
+    // approx fresnel, naive
+    float exp = powf(1.0f - dot(wi, microNormal), 5.0f);
+    glm::vec3 ret = F0 + (1.0f - F0) * exp;
+
+    glm::vec3 F = ret;
 
     // Adapted this from Schutte's specular BRDF simplification
     // I'm assuming the D term isn't here because of cut terms from fully evaluating GGX,
     // but I'm confused about why the denominator just doesn't exist in this implementation.
-    return F * G; // glm::vec3(G);
+    return (F * G) * glm::max(dot(wo, microNormal), 0.0f) / (nDotO * nDotM + 0.001f);
 }
 
 __host__ __device__ glm::vec3 diffuseBRDF(
