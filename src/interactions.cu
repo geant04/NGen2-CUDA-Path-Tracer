@@ -167,19 +167,24 @@ __host__ __device__ void sampleRay(
 
         glm::vec3 specularDir = glm::reflect(inDirection, microNormal);
 
-        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), m.color, m.metallic);
-        float avgF0 = glm::clamp((F0.x + F0.y + F0.z) / 3.0f, 0.02f, 0.98f);
-        bool isSpecularBounce = p < avgF0;
+        float cosTheta = glm::max(dot(normal, wo), 0.0f);
+        float f = fresnelDielectric(cosTheta, 1.0f, 1.45f);
+
+        bool isSpecularBounce = p < f;
 
         wi = glm::mix(
             diffuse_wi, 
             specularDir, 
             isSpecularBounce);
         brdf = glm::mix(
-            diffuseBRDF(wo, wi, normal, m) / (1.0f - avgF0), 
-            specularBRDF(wo, wi, normal, microNormal, m) / avgF0, 
+            diffuseBRDF(wo, wi, normal, m), 
+            // So this is most likely not correct at all, BUT:
+            // Not multiplying specularBRDF with F so far gets me the closest result to Blender.
+            // Now, I don't know why, but just an observation.
+            specularBRDF(wo, wi, normal, microNormal, m), 
             isSpecularBounce);
-        intersectOffset = wi * epsilon;
+
+        intersectOffset = normal * epsilon;
     }
     else if (m.subsurface > 0.0f)
     {
@@ -242,7 +247,6 @@ __host__ __device__ void sampleRay(
                 brdf *= absorptionTint;
             }
 #endif
-
             brdf *= 1.0f - f;
         }
 
@@ -375,9 +379,10 @@ __host__ __device__ void transmitMediumBRDF(
     return;
 }
 
+// Also known as Trowbridge-Reitz. Sorry. 
+// https://pharr.org/matt/blog/2022/05/06/trowbridge-reitz
 __host__ __device__ float GGXDistribution(float a2, float cosTheta)
 {
-    // https://agraphicsguynotes.com/posts/sample_microfacet_brdf/#one-extra-step
     float cos2Theta = cosTheta * cosTheta;
     float denom = (a2 - 1.0f) * cos2Theta + 1.0f;
 
@@ -385,19 +390,59 @@ __host__ __device__ float GGXDistribution(float a2, float cosTheta)
 }
 
 __host__ __device__ float SmithGGX(
-    float nDotI,
-    float nDotO,
+    glm::vec3 wo,
+    glm::vec3 wi,
+    glm::vec3 normal,
     float a2
 )
 {
-    // Based on implementation from https://schuttejoe.github.io/post/ggximportancesamplingpart1/,
-    // https://media.gdcvault.com/gdc2017/Presentations/Hammon_Earl_PBR_Diffuse_Lighting.pdf, this too maybe.
-    
-    // This combines SmithGGX(i, m) * SmithGGX(o, m)
-    float denomIn = nDotI * sqrt(a2 + (1.0f - a2) * (nDotI * nDotI));
-    float denomOut = nDotO * sqrt(a2 + (1.0f - a2) * (nDotO * nDotO));
+#if 0
+    float nDotI = dot(wi, normal);
+    float nDotO = dot(wo, normal);
 
-    return (2.0f * nDotI) / denomIn + (2.0f * nDotO) / denomOut;
+    // This combines SmithGGX(i, m) * SmithGGX(o, m)
+    float denomIn = nDotI * sqrt(a2 + (1.0f - a2) * (nDotI * nDotI)) + 0.0001f;
+    float denomOut = nDotO * sqrt(a2 + (1.0f - a2) * (nDotO * nDotO)) + 0.0001f;
+
+    float out = ((2.0f * nDotI) / denomIn) * ((2.0f * nDotO) / denomOut);
+#endif
+
+#if 0
+    // Schlick-Beckmann GGX, used in Karis's UE4 implementation
+    // https://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html#:~:text=Geometric%20Shadowing,%E2%8B%85vn%E2%8B%85v.
+    float roughness = sqrt(a2);
+    float k = (roughness + 1.0f) * (roughness + 1.0f) / 8.0f;
+    
+    float nDotL = dot(wi, normal);
+    float nDotV = dot(wo, normal);
+
+    float gSchlickL = nDotL / (nDotL * (1.0f - k) + k);
+    float gSchlickV = nDotV / (nDotV * (1.0f - k) + k);
+
+    float out = gSchlickL * gSchlickV;
+#endif
+
+#if 1
+    // Uncorrelated G2 model, used by refs:
+    // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
+    // https://media.gdcvault.com/gdc2017/Presentations/Hammon_Earl_PBR_Diffuse_Lighting.pdf
+
+    float nDotL = dot(wi, normal);
+    float nDotV = dot(wo, normal);
+
+    float num = 2.0f * nDotL * nDotV;
+    float denomV = nDotV * sqrt(a2 * (1.0f - a2) * (nDotL * nDotL));
+    float denomL = nDotL * sqrt(a2 * (1.0f - a2) * (nDotV * nDotV));
+
+    float out = num / (denomV + denomL);
+
+    if((nDotV + nDotL) < 0.1f)
+    {
+        out = 0.0f;
+    }
+#endif
+
+    return out;
 }
 
 __host__ __device__ glm::vec3 specularBRDF(
@@ -419,34 +464,25 @@ __host__ __device__ glm::vec3 specularBRDF(
 
     float roughness = glm::max(m.roughness, 0.0001f);
     float alpha = roughness * roughness;
-    float alpha2 = alpha * alpha;
+    float alpha2 = glm::max(alpha * alpha, 0.02f);
 
-    if (dot(wi, microNormal) < 0.0f)
-    {
-        mDotI = -mDotI;
-    }
-
-    float D = GGXDistribution(alpha2, nDotH);
-    float G = SmithGGX(nDotI, nDotO, alpha2);
+    float G = glm::clamp(SmithGGX(wo, wi, microNormal, alpha2), 0.0f, 1.05f);
        
     glm::vec3 albedo = m.color;
     glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, m.metallic);
     
     glm::vec3 metallicF = fresnelSchlick(F0, glm::max(dot(wi, half), 0.0f));
     // I hard coded the IOR of plastic,which is 1.460, into the third arg of fresnelDielectric
-    glm::vec3 dielectricF = glm::clamp(glm::vec3(fresnelDielectric(mDotI, 1.0f, 1.460f)), 0.0f, 1.0f); 
+    // glm::vec3 dielectricF = glm::clamp(glm::vec3(fresnelDielectric(mDotI, 1.0f, 1.460f)), 0.0f, 1.0f); 
 
 
-    // approx fresnel, naive
-    float exp = powf(1.0f - dot(wi, microNormal), 5.0f);
-    glm::vec3 ret = F0 + (1.0f - F0) * exp;
-
-    glm::vec3 F = ret;
+    // yeah idk man lol
+    glm::vec3 dielectricF = glm::vec3(fresnelDielectric(nDotO, 1.0f, 1.45f));
+    glm::vec3 F = dielectricF;
 
     // Adapted this from Schutte's specular BRDF simplification
-    // I'm assuming the D term isn't here because of cut terms from fully evaluating GGX,
-    // but I'm confused about why the denominator just doesn't exist in this implementation.
-    return (F * G) * glm::max(dot(wo, microNormal), 0.0f) / (nDotO * nDotM + 0.001f);
+    // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
+    return glm::vec3(G) * abs(dot(wo, microNormal)) / (nDotO * nDotM + 0.001f);
 }
 
 __host__ __device__ glm::vec3 diffuseBRDF(
