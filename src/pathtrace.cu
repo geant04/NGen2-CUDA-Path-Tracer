@@ -223,6 +223,7 @@ __global__ void computeIntersections(
     BVHNode* bvhNodes,
     int* triangleIndices,
     ShadeableIntersection* intersections,
+    GuiDataSettings settings,
     bool* dev_active_paths)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -268,45 +269,48 @@ __global__ void computeIntersections(
             }
         }
 
-#if 0
-        for (int i = 0; i < triangles_size; i++)
+        if (!settings.useBVH)
         {
-            const Triangle& triangle = triangles[i];
-
-            t = triangleIntersectionTest(triangle, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-
-            if (t > 0.0f && t_min > t)
+            for (int i = 0; i < triangles_size; i++)
             {
-                t_min = t;
-                hit_tri_index = i;
-                intersect_point = tmp_intersect;
-                normal = tmp_normal;
+                const Triangle& triangle = triangles[i];
+
+                t = triangleIntersectionTest(triangle, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+
+                if (t > 0.0f && t_min > t)
+                {
+                    t_min = t;
+                    hit_tri_index = i;
+                    intersect_point = tmp_intersect;
+                    normal = tmp_normal;
+                }
+            }
+        } 
+        else
+        {
+            int minTriIndex = -1;
+
+            if (triangles_size > 0)
+            {
+                t = bvhIntersectionTest(
+                    pathSegment.ray, 
+                    bvhNodes, 
+                    triangles, 
+                    triangleIndices, 
+                    tmp_intersect, 
+                    tmp_normal, 
+                    minTriIndex, 
+                    t_min);
+
+                if (t > 0.0f && t_min > t)
+                {
+                    t_min = t;
+                    hit_tri_index = minTriIndex;
+                    intersect_point = tmp_intersect;
+                    normal = tmp_normal;
+                }
             }
         }
-#else
-        int minTriIndex = -1;
-
-        if (triangles_size > 0)
-        {
-            t = bvhIntersectionTest(
-                pathSegment.ray, 
-                bvhNodes, 
-                triangles, 
-                triangleIndices, 
-                tmp_intersect, 
-                tmp_normal, 
-                minTriIndex, 
-                t_min);
-
-            if (t > 0.0f && t_min > t)
-            {
-                t_min = t;
-                hit_tri_index = minTriIndex;
-                intersect_point = tmp_intersect;
-                normal = tmp_normal;
-            }
-        }
-#endif
 
         if (hit_geom_index == -1 && hit_tri_index == -1)
         {
@@ -338,7 +342,8 @@ __global__ void shadeFakeMaterial(
     int num_paths,
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
-    Material* materials)
+    Material* materials,
+    GuiDataSettings settings)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num_paths)
@@ -382,7 +387,25 @@ __global__ void shadeFakeMaterial(
                 // Sample ray finds us our wi
                 sampleRay(pathSegments[idx], intersectionPoint, surfaceNormal, material, rng);
 #endif
+                if (iter < 3 || !settings.useRussianRoulette )
+                {
+                    return;
+                }
 
+                // Russian Roulette
+                glm::vec3 throughput = pathSegments[idx].color;
+                volatile float q = glm::max(throughput.x, glm::max(throughput.y, throughput.z));
+
+                // Kill the sample
+                if (u01(rng) > q)
+                {
+                    pathSegments[idx].color = glm::vec3(0.0f);
+                    pathSegments[idx].remainingBounces = 0;
+                }
+                else
+                {
+                    pathSegments[idx].color *= 1.0f / q;
+                }
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
@@ -494,8 +517,11 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     ShadeableIntersection *host_intersections = new ShadeableIntersection[pixelcount];
 
     bool iterationComplete = false;
+    GuiDataSettings settings = guiData->settings;
+
     while (!iterationComplete)
     {
+
         // clean shading chunks
         cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
@@ -516,6 +542,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_BVHNodes,
             dev_triIndices,
             dev_intersections,
+            settings,
             dev_active_paths
         );
         checkCUDAError("trace one bounce");
@@ -564,7 +591,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             num_paths,
             dev_intersections,
             dev_paths,
-            dev_materials
+            dev_materials,
+            settings
         );
 
         if (depth >= traceDepth)

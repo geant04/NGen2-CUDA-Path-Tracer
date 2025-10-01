@@ -17,7 +17,7 @@
             "TYPE":"Transmissive",
             "RGB":[0.98, 0.98, 0.98],
             "IOR": 1.44,
-            "ROUGHNESS": 1.0
+            "ROUGHNESS": 0.0
         },
         "transmissive_blue":
         {
@@ -184,14 +184,14 @@
         },
         {
             "TYPE":"cube",
-            "MATERIAL":"diffuse_white",
+            "MATERIAL":"diffuse_red",
             "TRANS":[-5.0,5.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[0.01,10.0,10.0]
         },
         {
             "TYPE":"cube",
-            "MATERIAL":"diffuse_white",
+            "MATERIAL":"diffuse_green",
             "TRANS":[5.0,5.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[0.01,10.0,10.0]

@@ -12,7 +12,7 @@ CUDA Path Tracer
 project, and we will not be able to grade you without a good README.
 
 
-<img src="img/sssDragon.png" w="100">
+<img src="img/goodEnoughSubSurf.png" w="100">
 <br>
 
 *Cool dragon picture for now. 871k tris with a fun in the works subsurf model.*

@@ -110,6 +110,36 @@ __host__ __device__ glm::vec3 isotropicSampleScatterDirection(float u1, float u2
     return calculateRandomDirectionInSphere(u1, u2);
 }
 
+__host__ __device__ glm::vec3 henyeyGreensteinSampleDirection(float g, float u1, float u2, glm::vec3 wo)
+{
+    // Does u1, u2 need to be converted to -1,1 space? currently in 0,1 space
+    // PBRT 4ed 11.3.1
+    float sqTerm = (1.0f - g * g) / (1.0f + g - 2.0f * g * u1);
+    float cosThetaLocal = -1.0f / (2.0f * g)  * (1.0f + (g * g) - (sqTerm * sqTerm));
+
+    // if g approx 0, our cosTheta is nearly isotropic (uniform random)
+    if (abs(g)  < 0.01)
+    {
+        cosThetaLocal = 1.0f - 2.0f * u1;
+    }
+
+    float sinThetaLocal = sqrt(1.0f - cosThetaLocal * cosThetaLocal);
+    float phi = TWO_PI * u2;
+
+    // z = up vector
+    float localX = glm::clamp(sinThetaLocal, -1.0f, 1.0f) * cos(phi);
+    float localY = glm::clamp(sinThetaLocal, -1.0f, 1.0f) * sin(phi);
+    float localZ = glm::clamp(cosThetaLocal, -1.0f, 1.0f);
+    glm::vec3 localSphericalDirection = glm::vec3(localX, localY, localZ);
+
+    // world normal, need to build ortho matrix
+    glm::vec3 normal = wo;
+    glm::vec3 tangent = glm::cross(abs(wo.x > 0.1f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0), normal);
+    glm::vec3 bitangent = glm::cross(normal, tangent);
+
+    return tangent * localX + bitangent * localY + normal * localZ;
+}
+
 // MASSIVE RAY SAMPLING FUNCTION!!!!!!!!!!!!!!!
 __host__ __device__ void sampleRay(
     PathSegment & pathSegment,
@@ -153,9 +183,12 @@ __host__ __device__ void sampleRay(
     if (pathSegment.medium != VACUUM)
     {
 #if !DIFFUSION_PROFILE
+        transmitMediumDiffusionBRDF(pathSegment, intersect, wo, wi, normal, t, m, rng, u01);
 #else
-        transmitMediumBRDF(pathSegment, intersect, normal, t, rng, u01);
+        // https://computergraphics.stackexchange.com/questions/5214/a-recent-approach-for-subsurface-scattering
+        transmitMediumBRDF(pathSegment, intersect, wo, wi, normal, t, rng, u01);
 #endif
+        pathSegment.remainingBounces -= 1;
         return;
     }
 
@@ -204,13 +237,70 @@ __host__ __device__ void sampleRay(
     }
     else if (m.subsurface > 0.0f)
     {
-        wi = -wi;
+        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
+        normal = microNormal;
 
-        pathSegment.medium = ISOTROPIC;
-        pathSegment.ray.origin = intersect + wi * 0.01f;
-        pathSegment.ray.direction = wi;
+        float cosTheta = glm::max(0.0f, dot(normal, wo));
+        float f = fresnelDielectric(cosTheta, 1.0f, 1.55f);
 
+        if (u01(rng) < f)
+        {
+            pathSegment.ray.origin = intersect + normal * 0.001f;
+            pathSegment.ray.direction = glm::reflect(-wo, normal);
+        }
+        else
+        {
+            wi = -wo;
+
+            pathSegment.medium = ISOTROPIC;
+            pathSegment.ray.origin = intersect + wi * 0.0001f;
+            pathSegment.ray.direction = wi;
+        }
+        
+        pathSegment.remainingBounces -= 1;
         return;
+
+#if 0
+        // surface albedo (diffuse surface reflectance)
+        float A = 0.90f;
+        float s = 1.85f - A + 7.0f * pow(abs(A - 0.8f), 3.0f);
+
+        // surface free path length
+        float dmpf = 0.5f;
+        float r;
+
+        // pdf (deriv of cdf) evals to 1/4 * lmbd1 e ^{-lmbd1 * r} + 3/4 * lmbd2 e^{-lmbd2 * r}
+        //  d = dmpf / s;
+        float lmbd1 = s / dmpf;
+        float lmbd2 = lmbd1 / 3.0f;
+        float p = u01(rng);
+        float rand = u01(rng);
+        r = (p < 0.25f) ? (-log(rand) / lmbd1) : (-log(rand) / lmbd2);
+
+        // reflectance profile code
+        float l = dmpf * s;
+        float d = dmpf / s;
+        float invD = 1.0f / d;
+
+        float approxNom = exp(-r * lmbd1) + exp(-r * lmbd2);
+        float approxDenom = (8.0f * PI * dmpf * r);
+        float approxReflectance = A * s * (approxNom / approxDenom);
+
+        // random sample
+        float u = u01(rng);
+        float theta = TWO_PI * u;
+        float cosTheta = cos(theta);
+        float sinTheta = sin(theta);
+
+        glm::vec3 tangent = glm::cross((abs(normal.z) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(1, 0, 0), normal);
+        glm::vec3 bitangent = glm::cross(normal, tangent);
+        glm::vec3 offset = cosTheta * r * tangent + sinTheta * r * bitangent;
+
+        pathSegment.color *= m.color;
+        pathSegment.ray.origin = intersect + offset + normal * 0.01f;
+        pathSegment.ray.direction = diffuse_wi;
+        return;
+#endif
     }
     else if (m.hasRefractive)
     {
@@ -237,7 +327,7 @@ __host__ __device__ void sampleRay(
         {
             wi = glm::reflect(glm::normalize(-wo), normal);
             //wi = glm::mix(wi, diffuseWi, m.roughness);
-            //brdf *= f;
+            brdf *= f;
         }
         else
         {
@@ -344,6 +434,8 @@ __host__ __device__ glm::vec3 specularBTDF(
 __host__ __device__ void transmitMediumDiffusionBRDF(
     PathSegment &pathSegment,
     glm::vec3 intersect,
+    glm::vec3 wo,
+    glm::vec3 in_wi,
     glm::vec3 normal,
     float t,
     const Material &m,
@@ -351,26 +443,28 @@ __host__ __device__ void transmitMediumDiffusionBRDF(
     thrust::uniform_real_distribution<float> &u01
 )
 {
-    float scatteringDistance = 0.8f;
-
+    // TO DO: implement this one day
     return;
 }
 
 __host__ __device__ void transmitMediumBRDF(
     PathSegment &pathSegment,
     glm::vec3 intersect,
+    glm::vec3 wo,
+    glm::vec3 wi,
     glm::vec3 normal,
     float t,
     thrust::default_random_engine &rng,
     thrust::uniform_real_distribution<float> &u01
 )
 {
-    float scatteringDistance = 1.0f;
+#if 1
+    float scatteringDistance = 0.5f;
     float scatteringCoefficient = 1.0f / scatteringDistance;
     float weight = 1.0f;
     float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
 
-    float absorptionAtDistance = 5.0f;
+    float absorptionAtDistance = 1.0f;
     glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
     glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
 
@@ -381,7 +475,8 @@ __host__ __device__ void transmitMediumBRDF(
         pathSegment.color *= transmission * weight;
 
         pathSegment.ray.origin += pathSegment.ray.direction * distance;
-        pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
+        pathSegment.ray.direction = henyeyGreensteinSampleDirection(-0.5f, u01(rng), u01(rng), -wo);
+        //pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
     }
     // No scatter event, we've hit the surface and we're ready to leave!
     else
@@ -395,6 +490,7 @@ __host__ __device__ void transmitMediumBRDF(
     }
 
     return;
+#endif
 }
 
 // Also known as Trowbridge-Reitz. Sorry. 

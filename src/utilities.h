@@ -16,11 +16,23 @@
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 #define EPSILON           0.00001f
 
+#define RUSSIAN_ROULETTE_FLAG 1
+#define RAYTRACE_DEBUG_FLAG 2
+#define USE_BVH_FLAG 3
+
+struct GuiDataSettings
+{
+    int settingFlags;
+    bool useRussianRoulette = false;
+    bool useBVH = true;
+};
+
 class GuiDataContainer
 {
 public:
-    GuiDataContainer() : TracedDepth(0) {}
+    GuiDataContainer() : TracedDepth(0), settings{} {}
     int TracedDepth;
+    GuiDataSettings settings;
 };
 
 namespace utilityCore
