@@ -380,13 +380,16 @@ __global__ void shadeFakeMaterial(
                 Ray wo = pathSegments[idx].ray;
                 glm::vec3 intersectionPoint = getPointOnRay(wo, intersection.t); //wo.origin + glm::normalize(wo.direction) * (intersection.t);
                 
-#if DEBUG_RAYTRACE_ONLY
-                pathSegments[idx].color *= 0.50f * dot(glm::normalize(glm::vec3(0.7f, 1.0f, 0.7f)), surfaceNormal) + 0.50f;
-                pathSegments[idx].remainingBounces = 0;
-#else
+                if (settings.useDebugShader)
+                {                    
+                    pathSegments[idx].color *= 0.50f * dot(glm::normalize(glm::vec3(0.7f, 1.0f, 0.7f)), surfaceNormal) + 0.50f;
+                    pathSegments[idx].remainingBounces = 0;
+                    return;
+                }
+
                 // Sample ray finds us our wi
                 sampleRay(pathSegments[idx], intersectionPoint, surfaceNormal, material, rng);
-#endif
+
                 if (iter < 3 || !settings.useRussianRoulette )
                 {
                     return;
@@ -454,11 +457,16 @@ struct identity_pred {
  */
 void pathtrace(uchar4* pbo, int frame, int iter)
 {
-#if DEBUG_RAYTRACE_ONLY
-    const int traceDepth = 1;
-#else
-    const int traceDepth = hst_scene->state.traceDepth;
-#endif
+    GuiDataSettings settings = guiData->settings;
+
+    int traceDepth = hst_scene->state.traceDepth;
+
+    // Debug shader only tests single intersections,
+    // immediately end after one iteration.
+    if (settings.useDebugShader)
+    {
+        traceDepth = 1;
+    }
 
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -517,7 +525,6 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     ShadeableIntersection *host_intersections = new ShadeableIntersection[pixelcount];
 
     bool iterationComplete = false;
-    GuiDataSettings settings = guiData->settings;
 
     while (!iterationComplete)
     {

@@ -24,6 +24,7 @@ struct GuiDataSettings
 {
     int settingFlags;
     bool useRussianRoulette = false;
+    bool useDebugShader = false;
     bool useBVH = true;
 };
 

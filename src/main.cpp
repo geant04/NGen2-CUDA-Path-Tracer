@@ -276,6 +276,7 @@ void RenderImGui()
     // LOOK: Un-Comment to check the output window and usage
     ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Russian Roulette", &imguiData->settings.useRussianRoulette);
+    ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
     ImGui::Checkbox("Use BVH (Be careful!)", &imguiData->settings.useBVH);
 
     //ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
