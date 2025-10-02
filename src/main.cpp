@@ -277,15 +277,26 @@ void RenderImGui()
     ImGui::Text("Optimization Settings");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Russian Roulette", &imguiData->settings.useRussianRoulette);
     ImGui::Checkbox("Use BVH (Be careful!)", &imguiData->settings.useBVH);
+    
+    ImGui::Text("Scene Settings");
+    ImGui::Checkbox("Use jittered anti-aliasing", &imguiData->settings.useAA);
+    ImGui::InputInt("Bounces", &imguiData->settings.bounces);
+
+    ImGui::Text("Depth of Field Settings");
+    ImGui::Checkbox("Use Depth of Field", &imguiData->settings.useDOF);
+    ImGui::SliderFloat("Focal length", &imguiData->settings.focalLengthDOF, 0.0f, 10.0f);
+    ImGui::SliderFloat("Aperture size", &imguiData->settings.apertureDOF, 0.0f, 32.0f);
 
     ImGui::Text("Debug Toggles");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
 
-    ImGui::Text("Scene Settings");               // Display some text (you can use a format strings too)
-    ImGui::InputInt("Bounces", &imguiData->settings.bounces);            // Edit 1 float using a slider from 0.0f to 1.0f
-
     //ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
     //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Re-render scene") && !camchanged)
+    {
+        camchanged = true;
+    }
 
     //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
     //    counter++;

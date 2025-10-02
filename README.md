@@ -17,6 +17,21 @@ project, and we will not be able to grade you without a good README.
 
 *Cool dragon picture for now. 871k tris with a fun in the works subsurf model.*
 
+## Core Req. Features
+### Jittered Anti-Aliasing
+Aliasing occurs from an undersampling of a signal, producing a lower frequency result - in this case, we can think of it as a single pixel undersampling the color contents in its resolution space. This can be easily alleviated by randomly jittering/offseting the ray origin position so that it samples different areas of the pixel, and through accumulation, averages all the results together. This allows us to get sharper and more defined edges.
+
+<table>
+<tr>
+<th>No AA</th>
+<th>With AA</th>
+</tr>
+<tr>
+<td><img src="img/noAA.png"></td>
+<td><img src="img/withAA.png"></td>
+</tr>
+</table>
+
 ## Ge Pathtracer BRDF Model
 ### Diffuse BRDF + Microfacet Specular GGX
 

@@ -24,6 +24,12 @@ struct GuiDataSettings
 {
     int settingFlags;
     int bounces;
+
+    float focalLengthDOF = 5.0f;
+    float apertureDOF = 2.0f;
+    bool useDOF = false;
+
+    bool useAA = true;
     bool useRussianRoulette = false;
     bool useDebugShader = false;
     bool useBVH = true;

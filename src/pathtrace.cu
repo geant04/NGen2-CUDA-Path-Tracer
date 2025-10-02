@@ -163,13 +163,12 @@ void pathtraceFree()
 * motion blur - jitter rays "in time"
 * lens effect - jitter ray origin positions based on a lens
 */
-__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, PathSegment* pathSegments)
+__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, GuiDataSettings settings, PathSegment* pathSegments)
 {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-    bool DOF = false;
-
+    bool DOF = settings.useDOF;
 
     if (x < cam.resolution.x && y < cam.resolution.y) {
         int index = x + (y * cam.resolution.x);
@@ -178,11 +177,14 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
         segment.ray.origin = cam.position;
         segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
-        // TODO: implement antialiasing by jittering the ray
-        // Naive ray generation
+        glm::vec2 offset = glm::vec2(0.0f);
+
         thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, segment.remainingBounces);
         thrust::uniform_real_distribution<float> pxOffset(-0.5f, 0.5f);
-        glm::vec2 offset = glm::vec2(pxOffset(rng), pxOffset(rng));
+        thrust::uniform_real_distribution<float> u01(0.0f, 1.0f);
+
+        offset = glm::vec2(pxOffset(rng), pxOffset(rng)) * glm::vec2(settings.useAA ? 1.0f : 0.0f);
+
 
         segment.ray.direction = glm::normalize(cam.view
             - cam.right * cam.pixelLength.x * ((float)x + offset.x - (float)cam.resolution.x * 0.5f)
@@ -192,15 +194,20 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
         if (DOF)
         {
             // https://pathtracing.home.blog/depth-of-field/
-            float focalLength = 5.0f;
-            float aperture = 2.0f;
+            float focalLength = settings.focalLengthDOF;
+            float aperture = settings.apertureDOF;
+
+            // naive disk sampling
+            float r = sqrt(u01(rng));
+            float theta = TWO_PI * u01(rng);
+            glm::vec2 diskSample = glm::vec2(r * cos(theta), r * sin(theta));
 
             glm::vec3 convergencePoint = cam.position + focalLength * segment.ray.direction;
-            glm::vec3 shiftedOrigin = cam.position + cam.up * aperture * offset.x + cam.right * aperture * offset.y;
+            glm::vec3 shiftedOrigin = cam.position + cam.up * aperture * diskSample.x + cam.right * aperture * diskSample.y;
             glm::vec3 newDir = convergencePoint - shiftedOrigin;
 
             segment.ray.origin = shiftedOrigin;
-            segment.ray.direction = newDir;
+            segment.ray.direction = glm::normalize(newDir);
         }
 
         segment.pixelIndex = index;
@@ -511,7 +518,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     // TODO: perform one iteration of path tracing
 
-    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
+    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, settings, dev_paths);
     checkCUDAError("generate camera ray");
 
     int depth = 0;
