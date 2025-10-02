@@ -459,7 +459,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 {
     GuiDataSettings settings = guiData->settings;
 
-    int traceDepth = hst_scene->state.traceDepth;
+    int traceDepth = settings.bounces;//hst_scene->state.traceDepth;
 
     // Debug shader only tests single intersections,
     // immediately end after one iteration.

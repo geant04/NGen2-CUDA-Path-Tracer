@@ -60,7 +60,7 @@ __host__ __device__ glm::vec3 calculateWalterGGXSampling(
     thrust::uniform_real_distribution<float> u01(0.0f, 1.0f);
     float u0 = u01(rng);
     float u1 = u01(rng);
-
+    
     float alpha = roughness * roughness;
     float alpha2 = alpha * alpha;
 
@@ -253,58 +253,15 @@ __host__ __device__ void sampleRay(
             wi = -wo;
 
             pathSegment.medium = ISOTROPIC;
-            pathSegment.ray.origin = intersect + wi * 0.0001f;
+            pathSegment.ray.origin = intersect + wi * 0.01f;
             pathSegment.ray.direction = wi;
         }
         
         pathSegment.remainingBounces -= 1;
         return;
-
-#if 0
-        // surface albedo (diffuse surface reflectance)
-        float A = 0.90f;
-        float s = 1.85f - A + 7.0f * pow(abs(A - 0.8f), 3.0f);
-
-        // surface free path length
-        float dmpf = 0.5f;
-        float r;
-
-        // pdf (deriv of cdf) evals to 1/4 * lmbd1 e ^{-lmbd1 * r} + 3/4 * lmbd2 e^{-lmbd2 * r}
-        //  d = dmpf / s;
-        float lmbd1 = s / dmpf;
-        float lmbd2 = lmbd1 / 3.0f;
-        float p = u01(rng);
-        float rand = u01(rng);
-        r = (p < 0.25f) ? (-log(rand) / lmbd1) : (-log(rand) / lmbd2);
-
-        // reflectance profile code
-        float l = dmpf * s;
-        float d = dmpf / s;
-        float invD = 1.0f / d;
-
-        float approxNom = exp(-r * lmbd1) + exp(-r * lmbd2);
-        float approxDenom = (8.0f * PI * dmpf * r);
-        float approxReflectance = A * s * (approxNom / approxDenom);
-
-        // random sample
-        float u = u01(rng);
-        float theta = TWO_PI * u;
-        float cosTheta = cos(theta);
-        float sinTheta = sin(theta);
-
-        glm::vec3 tangent = glm::cross((abs(normal.z) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(1, 0, 0), normal);
-        glm::vec3 bitangent = glm::cross(normal, tangent);
-        glm::vec3 offset = cosTheta * r * tangent + sinTheta * r * bitangent;
-
-        pathSegment.color *= m.color;
-        pathSegment.ray.origin = intersect + offset + normal * 0.01f;
-        pathSegment.ray.direction = diffuse_wi;
-        return;
-#endif
     }
     else if (m.hasRefractive)
     {
-        // glm::vec3 diffuseWi = glm::mix(normal, diffuseNormal, m.roughness);
         glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
         normal = microNormal;
 
@@ -320,7 +277,6 @@ __host__ __device__ void sampleRay(
 
         float f = fresnelDielectric(cosThetaI, etaA, etaB);
 
-        // no tint, do this for now
         brdf = glm::vec3(1.0f);
 
         if (rand < f)
@@ -345,16 +301,17 @@ __host__ __device__ void sampleRay(
             {
                 wi = glm::reflect(inDirection, normal);
             }
-#if 1
+
+            // absorptionMultiplier controls how much light absorbs color
+            // Absorption is based on how far the light is within the medium.
             if (!entering)
             {
                 float scatterDistance = t;
-                float absorptionMultiplier = 0.3f;
-                glm::vec3 absorptionTint = exp(-scatterDistance * glm::vec3(1.0f, 0.0f, 0.0f) * absorptionMultiplier);
+                glm::vec3 absorptionTint = exp(-scatterDistance * m.color * m.absorptionMultiplier);
 
                 brdf *= absorptionTint;
             }
-#endif
+
             brdf *= 1.0f - f;
         }
 
@@ -459,12 +416,12 @@ __host__ __device__ void transmitMediumBRDF(
 )
 {
 #if 1
-    float scatteringDistance = 0.5f;
+    float scatteringDistance = 1.0f;
     float scatteringCoefficient = 1.0f / scatteringDistance;
     float weight = 1.0f;
     float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
 
-    float absorptionAtDistance = 1.0f;
+    float absorptionAtDistance = 100.0f;
     glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
     glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
 
@@ -482,7 +439,7 @@ __host__ __device__ void transmitMediumBRDF(
     else
     {
         glm::vec3 transmission = exp(-absorptionCoefficient * t);
-        pathSegment.color *= transmission;
+        pathSegment.color *= glm::vec3(1.0f, 0.0f, 0.0f);
 
         // No need to change ray direction, should be ok
         pathSegment.medium = VACUUM;
@@ -593,5 +550,6 @@ __host__ __device__ glm::vec3 diffuseBRDF(
     const Material &m
 )
 {
-    return m.color; //glm::clamp(m.color, glm::vec3(0.0f), glm::vec3(1.0f));
+    return m.color;
 }
+

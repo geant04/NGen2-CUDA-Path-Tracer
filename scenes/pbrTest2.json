@@ -17,20 +17,23 @@
             "TYPE":"Transmissive",
             "RGB":[0.98, 0.98, 0.98],
             "IOR": 1.44,
+            "ABSORPTION": 0.0,
             "ROUGHNESS": 0.0
         },
         "transmissive_blue":
         {
             "TYPE":"Transmissive",
-            "RGB":[0.98, 0.35, 0.98],
+            "RGB":[0.98, 0.0, 0.0],
             "IOR": 1.44,
+            "ABSORPTION": 0.3,
             "ROUGHNESS": 0.0
         },
         "subsurface_normal":
         {
             "TYPE":"Subsurface",
             "RGB":[0.35, 0.35, 0.98],
-            "SUBSURFACE": 1.8
+            "SUBSURFACE": 1.8,
+            "ROUGHNESS": 0.0
         },
         "diffuse_red":
         {

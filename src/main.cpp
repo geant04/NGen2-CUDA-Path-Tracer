@@ -274,10 +274,15 @@ void RenderImGui()
     ImGui::Begin("Path Tracer Analytics");                  // Create a window called "Hello, world!" and append into it.
     
     // LOOK: Un-Comment to check the output window and usage
-    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Text("Optimization Settings");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Russian Roulette", &imguiData->settings.useRussianRoulette);
-    ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
     ImGui::Checkbox("Use BVH (Be careful!)", &imguiData->settings.useBVH);
+
+    ImGui::Text("Debug Toggles");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
+
+    ImGui::Text("Scene Settings");               // Display some text (you can use a format strings too)
+    ImGui::InputInt("Bounces", &imguiData->settings.bounces);            // Edit 1 float using a slider from 0.0f to 1.0f
 
     //ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
     //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
@@ -357,6 +362,7 @@ int main(int argc, char** argv)
 
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();
+    guiData->settings.bounces = scene->state.traceDepth;
 
     // Set up camera stuff from loaded path tracer settings
     iteration = 0;

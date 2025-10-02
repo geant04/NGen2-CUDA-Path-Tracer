@@ -74,6 +74,7 @@ struct Material
     float roughness;
     float metallic;
     float subsurface;
+    float absorptionMultiplier;
 };
 
 struct Camera

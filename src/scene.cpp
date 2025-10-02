@@ -53,6 +53,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
         newMaterial.roughness = 1.0f;
         newMaterial.metallic = 0.0f;
         newMaterial.subsurface = 0.0f;
+        newMaterial.absorptionMultiplier = 0.0f;
         newMaterial.hasReflective = false;
         newMaterial.hasRefractive = false;
 
@@ -82,6 +83,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newMaterial.indexOfRefraction = p["IOR"];
             newMaterial.hasRefractive = true;
             newMaterial.roughness = p["ROUGHNESS"];
+            newMaterial.absorptionMultiplier = p["ABSORPTION"];
         }
         else if (p["TYPE"] == "Subsurface")
         {

@@ -190,7 +190,7 @@
         },
         {
             "TYPE":"mesh",
-            "MATERIAL":"diffuse_red",
+            "MATERIAL":"subsurface_normal",
             "FILE_PATH":"../scenes/models/dragon.glb",
             "TRANS":[0.0,1.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
