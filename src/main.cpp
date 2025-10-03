@@ -280,6 +280,8 @@ void RenderImGui()
     
     ImGui::Text("Scene Settings");
     ImGui::Checkbox("Use jittered anti-aliasing", &imguiData->settings.useAA);
+    ImGui::Checkbox("Use stream compaction", &imguiData->settings.usePartition);
+    ImGui::Checkbox("Use material sort", &imguiData->settings.useMaterialSort);
     ImGui::InputInt("Bounces", &imguiData->settings.bounces);
 
     ImGui::Text("Depth of Field Settings");

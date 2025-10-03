@@ -30,6 +30,9 @@ struct GuiDataSettings
     bool useDOF = false;
 
     bool useAA = true;
+    bool usePartition = false;
+    bool useMaterialSort = false;
+
     bool useRussianRoulette = false;
     bool useDebugShader = false;
     bool useBVH = true;

@@ -271,10 +271,6 @@ __host__ __device__ void sampleRay(
 
         float rand = u01(rng);
 
-        glm::vec3 R0 = glm::vec3((etaA - etaB) / (etaA + etaB));
-        R0 = R0 * R0;
-        glm::vec3 F = fresnelSchlick(R0, abs(cosThetaI));
-
         float f = fresnelDielectric(cosThetaI, etaA, etaB);
 
         brdf = glm::vec3(1.0f);
@@ -312,7 +308,7 @@ __host__ __device__ void sampleRay(
                 brdf *= absorptionTint;
             }
 
-            brdf *= 1.0f - f;
+            // brdf *= (1.0f - f);
         }
 
         pathSegment.ray.direction = wi;

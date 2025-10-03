@@ -90,7 +90,6 @@ static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
-static bool* dev_active_paths = NULL;
 static Triangle* dev_triangles = NULL;
 static BVHNode* dev_BVHNodes = NULL;
 
@@ -129,9 +128,6 @@ void pathtraceInit(Scene* scene)
     cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
     // TODO: initialize any extra device memeory you need
-    cudaMalloc(&dev_active_paths, pixelcount * sizeof(bool));
-    cudaMemset(dev_active_paths, false, pixelcount * sizeof(bool));
-    
     cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
     cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
 
@@ -189,7 +185,6 @@ void pathtraceFree()
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
     // TODO: clean up any extra device memory you created
-    cudaFree(dev_active_paths);
     cudaFree(dev_triangles);
     cudaFree(dev_BVHNodes);
     cudaFree(dev_triIndices);
@@ -221,6 +216,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, GuiD
 
         segment.ray.origin = cam.position;
         segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
+        segment.radiance = glm::vec3(0.0f);
 
         glm::vec2 offset = glm::vec2(0.0f);
 
@@ -275,8 +271,7 @@ __global__ void computeIntersections(
     BVHNode* bvhNodes,
     int* triangleIndices,
     ShadeableIntersection* intersections,
-    GuiDataSettings settings,
-    bool* dev_active_paths)
+    GuiDataSettings settings)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -374,8 +369,6 @@ __global__ void computeIntersections(
             intersections[path_index].t = t_min;
             intersections[path_index].materialId = (hit_tri_index != -1) ? triangles[hit_tri_index].materialid : geoms[hit_geom_index].materialid;
             intersections[path_index].surfaceNormal = normal;
-            
-            dev_active_paths[path_index] = true;
         }
     }
 }
@@ -421,7 +414,7 @@ __global__ void shadeFakeMaterial(
 
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
-                pathSegments[idx].radiance *= (materialColor * material.emittance * glm::vec3(2.0f));
+                pathSegments[idx].radiance = (materialColor * material.emittance * glm::vec3(2.0f));
                 pathSegments[idx].remainingBounces = 0;
             }
             // Otherwise, do some pseudo-lighting computation. This is actually more
@@ -505,16 +498,29 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
     if (index < nPaths)
     {
         PathSegment iterationPath = iterationPaths[index];
-        image[iterationPath.pixelIndex] += iterationPath.color * iterationPath.radiance;
+
+        glm::vec3 outColor = iterationPath.color * iterationPath.radiance;
+        // outColor = pow(outColor, glm::vec3(1.0f / 2.2f));
+
+        image[iterationPath.pixelIndex] += outColor;
     }
 }
 
 struct is_active_path
 {
     __host__ __device__
-    bool operator()(const bool &x)
+    bool operator()(const PathSegment &pathSegment)
     {
-        return x == true;
+        return pathSegment.remainingBounces > 0;
+    }
+};
+
+struct is_ordered_material
+{
+    __host__ __device__
+    bool operator()(const ShadeableIntersection &intersectionA, const ShadeableIntersection &intersectionB)
+    {
+        return intersectionA.materialId < intersectionB.materialId;
     }
 };
 
@@ -607,9 +613,6 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         // clean shading chunks
         cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
-        // reset active paths
-        cudaMemset(dev_active_paths, false, pixelcount * sizeof(bool));
-
         // tracing
         // write to active paths
         dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
@@ -624,15 +627,11 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_BVHNodes,
             dev_triIndices,
             dev_intersections,
-            settings,
-            dev_active_paths
-        );
+            settings);
         checkCUDAError("trace one bounce");
         cudaDeviceSynchronize();
         depth++;
         
-        //thrust::partition(thrust::device, dev_intersections, dev_intersections + pixelcount, dev_active_paths, is_active_path());
-        //thrust::partition(thrust::device, dev_paths, dev_paths + pixelcount, dev_active_paths, is_active_path());
 
 #if DEBUG_COMPACT
         if (depth == 3)
@@ -659,6 +658,12 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         }
 #endif
 
+        if (settings.useMaterialSort)
+        {
+            // This somehow reorders both dev_paths and dev_intersections
+            thrust::sort_by_key(thrust::device, dev_intersections, dev_intersections + num_paths, dev_paths, is_ordered_material());
+        }
+
         // TODO:
         // --- Shading Stage ---
         // Shade path segments based on intersections and generate new rays by
@@ -678,6 +683,23 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             settings
         );
 
+        if (settings.usePartition)
+        {
+            // I had code setup below that uses is_active_path to partition intersections before the shading part,
+            // but idk I think this is simpler and maybe better? There's just too much memory allocation needed to
+            // compact both intersections AND paths. Not worth it, and its overhead probably outweighs the perf benefits.
+            // thrust::partition(thrust::device, dev_intersections, dev_intersections + pixelcount, dev_active_paths, is_active_path());
+            
+            // According to documentation, partition returns [middle -> last].
+            // Thus, leftover paths = num_paths - middle.
+            // 
+            // It also turns out that our intersection paths get cleared at the beginning of the loop,
+            // so there's no point to running compaction on the intersections here.
+            // Although, we're also doing the compaction here and not prior to shading, but... eh it's easier this way.
+            auto middle = thrust::stable_partition(thrust::device, dev_paths, dev_paths + num_paths, is_active_path());
+            num_paths = middle - dev_paths;
+        }
+
         if (depth >= traceDepth)
         {
             iterationComplete = true;
@@ -691,7 +713,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     // Assemble this iteration and apply it to the image
     dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-    finalGather<<<numBlocksPixels, blockSize1d>>>(num_paths, dev_image, dev_paths);
+    finalGather<<<numBlocksPixels, blockSize1d>>>(pixelcount, dev_image, dev_paths);
 
     ///////////////////////////////////////////////////////////////////////////
 
