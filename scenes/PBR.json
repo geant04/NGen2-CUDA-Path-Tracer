@@ -15,7 +15,9 @@
         "transmissive_white":
         {
             "TYPE":"Diffuse",
-            "RGB":[0.98, 0.98, 0.98]
+            "RGB":[0.98, 0.98, 0.98],
+            "ROUGHNESS": 0.0,
+            "ABSORPTION": 0.0
         },
         "diffuse_red":
         {

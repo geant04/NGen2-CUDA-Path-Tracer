@@ -181,6 +181,17 @@ void Scene::loadFromJSON(const std::string& jsonName)
     int arraylen = camera.resolution.x * camera.resolution.y;
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
+
+    // Environment map loading
+    if (data.contains("EnvironmentMap"))
+    {
+        const auto& environmentMapData = data["EnvironmentMap"];
+
+        std::string environmentMapString = environmentMapData["FILE_PATH"].get<std::string>();
+        const char *environmentMapFilePath = environmentMapString.c_str();
+
+        loadEnvironmentMap(environmentMapFilePath);
+    }
 }
 
 
@@ -211,6 +222,40 @@ void Scene::processTriangle(vector<Geom> &geoms, const Geom &triangle)
 {
     geoms.push_back(triangle);
     return;
+}
+
+void Scene::loadEnvironmentMap(const char* filepath)
+{
+    float* imgData = stbi_loadf(
+        filepath, 
+        &environmentMap.width,
+        &environmentMap.height,
+        &environmentMap.channels,
+        0);
+
+    int width = environmentMap.width;
+    int height = environmentMap.height;
+    int channels = environmentMap.channels;
+
+    environmentMap.data = std::vector<glm::vec4>(width * height);
+    for (int i = 0; i < width * height; i++)
+    {
+        int idx = i * channels;
+        environmentMap.data[i].r = imgData[idx];
+        environmentMap.data[i].g = (channels > 1) ? imgData[idx + 1] : 0;
+        environmentMap.data[i].b = (channels > 2) ? imgData[idx + 2] : 0;
+        environmentMap.data[i].a = (channels > 3) ? imgData[idx + 3] : 1;
+    }
+
+    stbi_image_free(imgData);
+}
+
+void Scene::freeEnvironmentMap()
+{
+    if (environmentMap.host_textureData != nullptr)
+    {
+        stbi_image_free(environmentMap.host_textureData);
+    }
 }
 
 void Scene::processModel(vector<Geom> &geoms, const json &jsonModel, std::unordered_map<std::string, uint32_t> &MatNameToID)

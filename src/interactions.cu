@@ -416,12 +416,12 @@ __host__ __device__ void transmitMediumBRDF(
 )
 {
 #if 1
-    float scatteringDistance = 1.0f;
+    float scatteringDistance = 0.5f;
     float scatteringCoefficient = 1.0f / scatteringDistance;
     float weight = 1.0f;
     float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
 
-    float absorptionAtDistance = 100.0f;
+    float absorptionAtDistance = 1.0f;
     glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
     glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
 
@@ -439,7 +439,7 @@ __host__ __device__ void transmitMediumBRDF(
     else
     {
         glm::vec3 transmission = exp(-absorptionCoefficient * t);
-        pathSegment.color *= glm::vec3(1.0f, 0.0f, 0.0f);
+        pathSegment.color *= transmission;
 
         // No need to change ray direction, should be ok
         pathSegment.medium = VACUUM;

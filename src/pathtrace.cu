@@ -97,6 +97,11 @@ static BVHNode* dev_BVHNodes = NULL;
 // Not the best name, but represents the index map used from node to triangle
 static int* dev_triIndices = NULL;
 
+static cudaTextureObject_t dev_envTexObj;
+static cudaArray* dev_envArray = NULL;
+static glm::vec4* dev_envMap = NULL;
+
+
 void InitDataContainer(GuiDataContainer* imGuiData)
 {
     guiData = imGuiData;
@@ -136,6 +141,43 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_triIndices, scene->triangleIndices.size() * sizeof(int));
     cudaMemcpy(dev_triIndices, scene->triangleIndices.data(), scene->triangleIndices.size() * sizeof(int), cudaMemcpyHostToDevice);
 
+    // Environment map stuff
+    int width = scene->environmentMap.width;
+    int height = scene->environmentMap.height;
+
+    if (scene->environmentMap.data.size() > 0)
+    {
+        size_t pitch;
+        cudaMallocPitch(&dev_envMap, &pitch, width * sizeof(float4), height);
+        cudaMemcpy2D(
+            dev_envMap, 
+            pitch, 
+            scene->environmentMap.data.data(), 
+            width * sizeof(float4), 
+            width * sizeof(float4), 
+            height, 
+            cudaMemcpyHostToDevice);
+
+        cudaResourceDesc envResDesc = {};
+        envResDesc.res.pitch2D.devPtr = dev_envMap;
+        envResDesc.res.pitch2D.width = width;
+        envResDesc.res.pitch2D.height = height;
+        envResDesc.res.pitch2D.desc = cudaCreateChannelDesc<float4>();
+        envResDesc.res.pitch2D.pitchInBytes = pitch;
+        envResDesc.resType = cudaResourceTypePitch2D;
+
+        cudaTextureDesc envTexDesc = {};
+        envTexDesc.addressMode[0] = cudaAddressModeClamp;
+        envTexDesc.addressMode[1] = cudaAddressModeClamp;
+        envTexDesc.addressMode[2] = cudaAddressModeClamp;
+        envTexDesc.addressMode[3] = cudaAddressModeClamp;
+        envTexDesc.filterMode = cudaFilterModeLinear;
+        envTexDesc.readMode = cudaReadModeElementType;
+        envTexDesc.normalizedCoords = 1;
+
+        cudaCreateTextureObject(&dev_envTexObj, &envResDesc, &envTexDesc, nullptr);
+    }
+
     checkCUDAError("pathtraceInit");
 }
 
@@ -151,6 +193,9 @@ void pathtraceFree()
     cudaFree(dev_triangles);
     cudaFree(dev_BVHNodes);
     cudaFree(dev_triIndices);
+
+    cudaDestroyTextureObject(dev_envTexObj);
+    cudaFree(dev_envMap);
 
     checkCUDAError("pathtraceFree");
 }
@@ -350,6 +395,7 @@ __global__ void shadeFakeMaterial(
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
     Material* materials,
+    cudaTextureObject_t envMap,
     GuiDataSettings settings)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -375,7 +421,7 @@ __global__ void shadeFakeMaterial(
 
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
-                pathSegments[idx].color *= (materialColor * material.emittance * glm::vec3(2.0f));
+                pathSegments[idx].radiance *= (materialColor * material.emittance * glm::vec3(2.0f));
                 pathSegments[idx].remainingBounces = 0;
             }
             // Otherwise, do some pseudo-lighting computation. This is actually more
@@ -423,7 +469,29 @@ __global__ void shadeFakeMaterial(
             // This can be useful for post-processing and image compositing.
         }
         else {
-            pathSegments[idx].color = glm::vec3(0.0f);
+            glm::vec3 color = glm::vec3(0.0f);
+
+            if (envMap > 0)
+            {
+                glm::vec3 d = normalize(pathSegments[idx].ray.direction);
+
+                // evil stuff
+                /*float u = atan2(d.z, d.x) / (2.0f * PI) + 0.5f;
+                float v = acosf(glm::clamp(d.y, -1.0f, 1.0f)) / PI;*/
+                glm::vec2 uv = glm::vec2(atan2(d.z, d.x), asin(-d.y));
+                uv *= glm::vec2(0.1591, 0.3183);
+                uv += 0.5;
+
+                float4 outColor = tex2D<float4>(envMap, uv.x, uv.y);
+                color.x = outColor.x;
+                color.y = outColor.y;
+                color.z = outColor.z;
+                
+                // tonemapping
+                color = pow(color, glm::vec3(1.0f / 2.2f));
+            }
+
+            pathSegments[idx].radiance = color;
             pathSegments[idx].remainingBounces = 0;
         }
     }
@@ -437,7 +505,7 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
     if (index < nPaths)
     {
         PathSegment iterationPath = iterationPaths[index];
-        image[iterationPath.pixelIndex] += iterationPath.color;
+        image[iterationPath.pixelIndex] += iterationPath.color * iterationPath.radiance;
     }
 }
 
@@ -606,6 +674,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_intersections,
             dev_paths,
             dev_materials,
+            dev_envTexObj,
             settings
         );
 

@@ -57,6 +57,13 @@ struct BVHNode
     int firstIdx, prims;
 };
 
+struct Texture
+{
+    std::vector<glm::vec4> data; 
+    float* host_textureData;
+    int width, height, channels = 0;
+};
+
 struct Material
 {
     glm::vec3 color;
@@ -101,6 +108,7 @@ struct RenderState
 struct PathSegment
 {
     Ray ray;
+    glm::vec3 radiance;
     glm::vec3 color;
     glm::vec3 microNormal;
     int pixelIndex;

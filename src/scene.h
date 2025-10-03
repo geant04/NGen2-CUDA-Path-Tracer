@@ -15,6 +15,8 @@ private:
         const json &mesh, 
         std::unordered_map<std::string, uint32_t> &MatNameToID);
     void processTriangle(std::vector<Geom> &geoms, const Geom &triangle);
+    void loadEnvironmentMap(const char *filepath);
+    void freeEnvironmentMap();
 
     // TO DO: Move this to its own BVH cpp
     void buildBVH();
@@ -30,5 +32,8 @@ public:
 
     std::vector<Geom> geoms;
     std::vector<Material> materials;
+
+    Texture environmentMap;
+
     RenderState state;
 };
