@@ -429,6 +429,7 @@ __global__ void shadeFakeMaterial(
                 if (settings.useDebugShader)
                 {                    
                     pathSegments[idx].color *= 0.50f * dot(glm::normalize(glm::vec3(0.7f, 1.0f, 0.7f)), surfaceNormal) + 0.50f;
+                    pathSegments[idx].radiance = glm::vec3(1.0f);
                     pathSegments[idx].remainingBounces = 0;
                     return;
                 }

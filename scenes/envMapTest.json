@@ -30,6 +30,14 @@
             "TYPE":"Transmissive",
             "RGB":[0.0, 0.23, 0.68],
             "IOR": 1.44,
+            "ROUGHNESS": 0.35,
+            "ABSORPTION": 0.0
+        },        
+        "transmissive_amber":
+        {
+            "TYPE":"Transmissive",
+            "RGB":[0.0, 0.23, 0.68],
+            "IOR": 1.44,
             "ROUGHNESS": 0.1,
             "ABSORPTION": 1.0
         },
@@ -60,6 +68,20 @@
             "ROUGHNESS": 0.2,
             "METALLIC": 0.8
         },
+        "gold":
+        {
+            "TYPE":"Specular",
+            "RGB":[0.7, 0.7, 0.35],
+            "ROUGHNESS": 0.3,
+            "METALLIC": 1.0
+        },
+        "visor":
+        {
+            "TYPE":"Specular",
+            "RGB":[0.1, 0.1, 0.1],
+            "ROUGHNESS": 0.001,
+            "METALLIC": 0.0
+        },
         "microfaceet_plastic_green":
         {
             "TYPE":"Specular",
@@ -81,7 +103,7 @@
     },
     "EnvironmentMap":
     {
-        "FILE_PATH": "../scenes/sky/Frozen_Waterfall_Ref.hdr"
+        "FILE_PATH": "../scenes/sky/dusk.hdr"
     },
     "Objects":
     [
@@ -94,7 +116,7 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"transmissive_white_rough",
+            "MATERIAL":"transmissive_amber",
             "TRANS":[0.0,2.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
@@ -112,6 +134,22 @@
             "MATERIAL":"diffuse_red",
             "FILE_PATH":"../scenes/models/teapot.glb",
             "TRANS":[-5.0,0.1,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[3.0, 3.0, 3.0]
+        },
+        {
+            "TYPE":"mesh",
+            "MATERIAL":"gold",
+            "FILE_PATH":"../scenes/models/daft.glb",
+            "TRANS":[-3,6.1,-3.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[3.0, 3.0, 3.0]
+        },
+        {
+            "TYPE":"mesh",
+            "MATERIAL":"visor",
+            "FILE_PATH":"../scenes/models/daft2.glb",
+            "TRANS":[-3,6.1,-3.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0, 3.0, 3.0]
         }

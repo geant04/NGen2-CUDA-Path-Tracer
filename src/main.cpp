@@ -275,19 +275,19 @@ void RenderImGui()
     
     // LOOK: Un-Comment to check the output window and usage
     ImGui::Text("Optimization Settings");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Use stream compaction", &imguiData->settings.usePartition);
+    ImGui::Checkbox("Use material sort", &imguiData->settings.useMaterialSort);
     ImGui::Checkbox("Use Russian Roulette", &imguiData->settings.useRussianRoulette);
     ImGui::Checkbox("Use BVH (Be careful!)", &imguiData->settings.useBVH);
     
     ImGui::Text("Scene Settings");
     ImGui::Checkbox("Use jittered anti-aliasing", &imguiData->settings.useAA);
-    ImGui::Checkbox("Use stream compaction", &imguiData->settings.usePartition);
-    ImGui::Checkbox("Use material sort", &imguiData->settings.useMaterialSort);
     ImGui::InputInt("Bounces", &imguiData->settings.bounces);
 
     ImGui::Text("Depth of Field Settings");
     ImGui::Checkbox("Use Depth of Field", &imguiData->settings.useDOF);
     ImGui::SliderFloat("Focal length", &imguiData->settings.focalLengthDOF, 0.0f, 10.0f);
-    ImGui::SliderFloat("Aperture size", &imguiData->settings.apertureDOF, 0.0f, 32.0f);
+    ImGui::SliderFloat("Aperture size", &imguiData->settings.apertureDOF, 0.0f, 1.0f);
 
     ImGui::Text("Debug Toggles");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
