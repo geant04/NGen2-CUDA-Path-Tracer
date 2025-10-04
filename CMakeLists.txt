@@ -48,6 +48,13 @@ set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
 find_package(GLM REQUIRED)
 include_directories(${GLM_INCLUDE_DIRS})
 
+find_package(CUDAToolkit REQUIRED)
+set(OPTIX_ROOT "${CMAKE_SOURCE_DIR}/external/OptiX SDK 9.0.0")
+
+include_directories(${OPTIX_ROOT}/include)
+link_directories(${OPTIX_ROOT}/lib64)
+
+
 set(headers
     src/image.h
     src/interactions.h
@@ -58,6 +65,7 @@ set(headers
     src/tiny_gltf.h
     src/sceneStructs.h
     src/utilities.h
+    src/OptiXDenoiser.h
 )
 
 set(sources
@@ -70,6 +78,7 @@ set(sources
     src/interactions.cu
     src/scene.cpp
     src/utilities.cpp
+    src/optixDenoiser.cpp
 )
 
 set(imgui_headers
@@ -112,6 +121,9 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     ${GL_LIBRARIES}
     #stream_compaction  # TODO: uncomment if using your stream compaction
 )
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CUDAToolkit_INCLUDE_DIRS} ${OPTIX_ROOT})
+
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES native)
 
