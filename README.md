@@ -11,9 +11,11 @@ CUDA Path Tracer
 *DO NOT* leave the README to the last minute! It is a crucial part of the
 project, and we will not be able to grade you without a good README.
 
-
 <img src="img/withDOF.png" w="100">
-<br>
+
+![back image](img/subsurfBack.png)
+![studio image](img/studio.png)
+
 
 ## Req. Features
 ### Jittered Anti-Aliasing
@@ -128,8 +130,12 @@ When within an isotropic medium, I determine its traveled distance by ```-log(rn
 
 I found that using a Henyey-Greenstein anisotropic back-scattering phase function didn't give me better results compared to isotropic, but the implementation is still in the code.
 
+![back image](img/subsurfBack.png)
+
 ## Various Goodies
 ### Depth of Field
+
+Depth of field is described as the range of distances that appears sharp. We can simulate this in a pathtracer by switching from a pinhole camera to a lens-based one. Instead of shooting rays from the same point in world space, we can use a disk instead such that the area of focus converges at a user defined focal point from our camera. Thus, objects at the focal point appear sharp while others beyond blur out.
 
 <table>
 <tr>
@@ -139,6 +145,20 @@ I found that using a Henyey-Greenstein anisotropic back-scattering phase functio
 <tr>
 <td><img src="img/nDof.png"></td>
 <td><img src="img/wDof.png"></td>
+</tr>
+</table>
+
+### Environment Mapping
+Commonly in pathtracers, rays that miss geometry and instead leave with a distance of INF are terminated and contribute no radiance. If we instead add a sky for missed rays to hit through use of environment mapping, all missed rays can contribute radiance.
+
+<table>
+<tr>
+<th>Studio Environment Map</th>
+<th>Dusk Environment Map</th>
+</tr>
+<tr>
+<td><img src="img/studio.png"></td>
+<td><img src="img/dusk.png"></td>
 </tr>
 </table>
 
@@ -153,6 +173,14 @@ GLTF/GLBs are comprised of a scene representation, housing children that eventua
 ![the gang](img/allStarLineup.png)
 <br>
 *The gang. Featuring your favorite avocado, teapot, Wahoo, and dragon. In total, 130,470 triangles rendered!*
+
+---
+
+## Optimizations
+### Stream Compaction
+### Material Sorting
+### Russian Roulette
+
 
 ### BVH
 A bounding volume hierarchy (BVH) is a spatial tree structure used to speed up ray traversals by wrapping our geometry into volumes. Volumes are then recurisvely grouped together until we result in one root volume. When a ray traverses to find an intersection, it starts at the root, checking if it intersects with one of two volumes - if either, it recurses into checking its intersected volume's children, continuing until we end at one triangle.

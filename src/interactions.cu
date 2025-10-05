@@ -256,7 +256,7 @@ __host__ __device__ void sampleRay(
             wi = -wo;
 
             pathSegment.medium = ISOTROPIC;
-            pathSegment.ray.origin = intersect + wi * 0.001f;
+            pathSegment.ray.origin = intersect -normal * 0.001f;
             pathSegment.ray.direction = wi;
         }
         
