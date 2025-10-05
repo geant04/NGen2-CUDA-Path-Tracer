@@ -47,13 +47,20 @@
             "RGB":[0.98, 0.0, 0.0],
             "IOR": 1.44,
             "ROUGHNESS": 0.0,
-            "ABSORPTION": 0.3
+            "ABSORPTION": 1.0
         },
         "subsurface_normal":
         {
             "TYPE":"Subsurface",
             "RGB":[0.35, 0.85, 0.35],
             "SUBSURFACE": 0.25,
+            "ROUGHNESS": 0.0
+        },
+        "subsurface_normal2":
+        {
+            "TYPE":"Subsurface",
+            "RGB":[0.85, 0.35, 0.35],
+            "SUBSURFACE": 0.50,
             "ROUGHNESS": 0.0
         },
         "diffuse_red":
@@ -67,20 +74,6 @@
             "RGB":[0.35, 0.35, 0.8],
             "ROUGHNESS": 0.2,
             "METALLIC": 0.8
-        },
-        "microfacet_shiny_red":
-        {
-            "TYPE":"Specular",
-            "RGB":[0.85, 0.35, 0.35],
-            "ROUGHNESS": 0.01,
-            "METALLIC": 0.0
-        },
-        "microfacet_shiny_white":
-        {
-            "TYPE":"Specular",
-            "RGB":[0.85, 0.85, 0.85],
-            "ROUGHNESS": 0.01,
-            "METALLIC": 0.0
         },
         "gold":
         {
@@ -102,12 +95,6 @@
             "RGB":[0.35, 0.8, 0.35],
             "ROUGHNESS": 0.01,
             "METALLIC": 0.0
-        },
-        "procedural_checkboard":
-        {
-            "TYPE":"Procedural",
-            "PATTERN": 0,
-            "RGB":[0.98, 0.98, 0.98]
         }
     },
     "Camera":
@@ -117,7 +104,7 @@
         "ITERATIONS":5000,
         "DEPTH":8,
         "FILE":"cornell",
-        "EYE":[0.0,8.0,11.5],
+        "EYE":[0.0,5.0,10.5],
         "LOOKAT":[0.0,5.0,0.0],
         "UP":[0.0,1.0,0.0]
     },
@@ -129,15 +116,22 @@
     [
         {
             "TYPE":"cube",
-            "MATERIAL":"procedural_checkboard",
+            "MATERIAL":"diffuse_white",
             "TRANS":[0.0,0.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[40.0,0.01,40.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"transmissive_white_blue",
+            "MATERIAL":"subsurface_normal2",
             "TRANS":[0.0,2.0,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[3.0,3.0,3.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"subsurface_normal2",
+            "TRANS":[-4.0,2.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
@@ -146,30 +140,6 @@
             "MATERIAL":"subsurface_normal",
             "FILE_PATH":"../scenes/models/dragon.glb",
             "TRANS":[5.0,0.1,0.0],
-            "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[3.0, 3.0, 3.0]
-        },
-        {
-            "TYPE":"mesh",
-            "MATERIAL":"diffuse_red",
-            "FILE_PATH":"../scenes/models/teapot.glb",
-            "TRANS":[-5.0,0.1,0.0],
-            "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[3.0, 3.0, 3.0]
-        },
-        {
-            "TYPE":"mesh",
-            "MATERIAL":"gold",
-            "FILE_PATH":"../scenes/models/daft.glb",
-            "TRANS":[-3,6.1,-3.0],
-            "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[3.0, 3.0, 3.0]
-        },
-        {
-            "TYPE":"mesh",
-            "MATERIAL":"visor",
-            "FILE_PATH":"../scenes/models/daft2.glb",
-            "TRANS":[-3,6.1,-3.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0, 3.0, 3.0]
         }

@@ -154,20 +154,23 @@ __host__ __device__ void sampleRay(
 
     thrust::uniform_real_distribution<float> u01(0.0f, 1.0f);
 
-    // Using Joe Schutte's Disney implementation for this
-    float metallicWeight = m.metallic;
-    float diffuseWeight = (1.0f - metallicWeight);
-    float specularWeight = metallicWeight + diffuseWeight;
+    // Material properties
+    float surfaceRoughness = m.roughness;
+    float surfaceMetallic = m.metallic;
+    glm::vec3 surfaceAlbedo = m.color;
 
-    float invSumWeight = 1.0f;
+    if (m.pattern > -1.0f)
+    {
+        // Assume simple checkboard pattern
+        int a = floor(intersect.r);
+        int b = floor(intersect.b);
+        bool isTile = (a + b) % 2  == 0;
 
-    float pDiffuse = diffuseWeight * invSumWeight;
-    // float pSpecular = specularWeight * invSumWeight;
+        surfaceAlbedo = isTile ? surfaceAlbedo : glm::vec3(0.35f, 0.35f, 0.35f);
+        surfaceRoughness = isTile ? 0.01f : 0.50f;
+    }
 
-    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), m.color, m.metallic);
-    float pSpecular = glm::clamp((F0.x + F0.y + F0.z) / 3.0f, 0.02f, 0.98f);
 
-    
     // Distance value used by transmission when within a medium
     float t = glm::length(intersect - pathSegment.ray.origin);
     float p = u01(rng);
@@ -186,7 +189,7 @@ __host__ __device__ void sampleRay(
         transmitMediumDiffusionBRDF(pathSegment, intersect, wo, wi, normal, t, m, rng, u01);
 #else
         // https://computergraphics.stackexchange.com/questions/5214/a-recent-approach-for-subsurface-scattering
-        transmitMediumBRDF(pathSegment, intersect, wo, wi, normal, t, rng, u01);
+        transmitMediumBRDF(pathSegment, intersect, wo, wi, normal, t, m, rng, u01);
 #endif
         pathSegment.remainingBounces -= 1;
         return;
@@ -195,7 +198,7 @@ __host__ __device__ void sampleRay(
     if (m.hasReflective)
     {
         // Specular GGX
-        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
+        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, surfaceRoughness, rng));
         pathSegment.microNormal = microNormal;
 
         glm::vec3 specularDir = glm::reflect(inDirection, microNormal);
@@ -204,15 +207,15 @@ __host__ __device__ void sampleRay(
         float f = fresnelDielectric(cosTheta, 1.0f, 1.45f);
 
         // metallic F experiments... YA BABY...
-        glm::vec3 R0 = glm::mix(glm::vec3(0.04f), m.color, m.metallic);
+        glm::vec3 R0 = glm::mix(glm::vec3(0.04f), surfaceAlbedo, surfaceMetallic);
         glm::vec3 metallicF = fresnelSchlick(R0, cosTheta);
         float metallicFavg = (0.2126f * metallicF.r + 0.7152f * metallicF.g + 0.0722f * metallicF.b);
 
-        bool isSpecularBounce = p < glm::mix(f, metallicFavg, m.metallic);
+        bool isSpecularBounce = p < glm::mix(f, metallicFavg, surfaceMetallic);
 
         // Important brdf set. Don't remove this...
         brdf = glm::vec3(1.0f);
-        if (m.metallic > 0.0f)
+        if (surfaceMetallic > 0.0f)
         {
             // Artifically set this true... 
             // Seems sus, but we'll work with it for now.
@@ -226,18 +229,18 @@ __host__ __device__ void sampleRay(
             specularDir, 
             isSpecularBounce);
         brdf *= glm::mix(
-            diffuseBRDF(wo, wi, normal, m), 
+            diffuseBRDF(wo, wi, normal, surfaceAlbedo),
             // So this is most likely not correct at all, BUT:
             // Not multiplying specularBRDF with F so far gets me the closest result to Blender.
             // Now, I don't know why, but just an observation.
-            dielectricSpecularBRDF(wo, wi, normal, microNormal, m), 
+            dielectricSpecularBRDF(wo, wi, normal, microNormal, surfaceRoughness), 
             isSpecularBounce);
 
         intersectOffset = normal * epsilon;
     }
     else if (m.subsurface > 0.0f)
     {
-        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
+        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, surfaceRoughness, rng));
         normal = microNormal;
 
         float cosTheta = glm::max(0.0f, dot(normal, wo));
@@ -253,7 +256,7 @@ __host__ __device__ void sampleRay(
             wi = -wo;
 
             pathSegment.medium = ISOTROPIC;
-            pathSegment.ray.origin = intersect + wi * 0.01f;
+            pathSegment.ray.origin = intersect + wi * 0.001f;
             pathSegment.ray.direction = wi;
         }
         
@@ -262,7 +265,7 @@ __host__ __device__ void sampleRay(
     }
     else if (m.hasRefractive)
     {
-        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, m.roughness, rng));
+        glm::vec3 microNormal = glm::normalize(calculateWalterGGXSampling(normal, surfaceRoughness, rng));
         normal = microNormal;
 
         float cosThetaI = dot(normal, wo);        
@@ -278,8 +281,7 @@ __host__ __device__ void sampleRay(
         if (rand < f)
         {
             wi = glm::reflect(glm::normalize(-wo), normal);
-            //wi = glm::mix(wi, diffuseWi, m.roughness);
-            brdf *= f;
+            // brdf *= 2.0f * f;
         }
         else
         {
@@ -291,7 +293,6 @@ __host__ __device__ void sampleRay(
             float iorRatio = (entering) ? eta : 1.0f / eta;
 
             wi = glm::refract(inDirection, (entering) ? normal : -normal, iorRatio);
-            //wi = glm::mix(wi, (entering) ? -diffuseNormal : diffuseNormal, m.roughness);
 
             if (length(wi) < 0.01f)
             {
@@ -322,7 +323,7 @@ __host__ __device__ void sampleRay(
     {
         // Sample diffuse
         wi = diffuse_wi;
-        brdf = diffuseBRDF(wo, wi, normal, m);
+        brdf = diffuseBRDF(wo, wi, normal, surfaceAlbedo);
     }
 
     // Assign wi
@@ -407,29 +408,30 @@ __host__ __device__ void transmitMediumBRDF(
     glm::vec3 wi,
     glm::vec3 normal,
     float t,
+    const Material &m,
     thrust::default_random_engine &rng,
     thrust::uniform_real_distribution<float> &u01
 )
 {
 #if 1
-    float scatteringDistance = 0.5f;
+    float scatteringDistance = (m.subsurface > 0.0f) ? m.subsurface : 0.50f;
     float scatteringCoefficient = 1.0f / scatteringDistance;
     float weight = 1.0f;
     float distance = isotropicSampleDistance(t, scatteringCoefficient, weight, rng);
 
     float absorptionAtDistance = 1.0f;
-    glm::vec3 absorptionColor = glm::vec3(0.35f, 0.85f, 0.35f);
+    glm::vec3 absorptionColor = m.color;
     glm::vec3 absorptionCoefficient = -log(absorptionColor) / absorptionAtDistance;
 
-    // RichieSams has us create a "scatter event".
+    // Adrian Astley has us create a "scatter event".
     if (distance < t)
     {
         glm::vec3 transmission = isotropicTransmission(absorptionCoefficient, distance);
         pathSegment.color *= transmission * weight;
 
         pathSegment.ray.origin += pathSegment.ray.direction * distance;
-        pathSegment.ray.direction = henyeyGreensteinSampleDirection(-0.5f, u01(rng), u01(rng), -wo);
-        //pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
+        //pathSegment.ray.direction = henyeyGreensteinSampleDirection(-0.5f, u01(rng), u01(rng), -wo);
+        pathSegment.ray.direction = isotropicSampleScatterDirection(u01(rng), u01(rng));
     }
     // No scatter event, we've hit the surface and we're ready to leave!
     else
@@ -517,7 +519,7 @@ __host__ __device__ glm::vec3 dielectricSpecularBRDF(
     glm::vec3 wi,
     glm::vec3 normal,
     glm::vec3 microNormal,
-    const Material &m
+    float materialRoughness
 )
 {
     float nDotI = glm::max(dot(normal, wi), 0.0f);
@@ -526,7 +528,7 @@ __host__ __device__ glm::vec3 dielectricSpecularBRDF(
 
     float mDotI = glm::max(dot(microNormal,wi), 0.0f);
 
-    float roughness = glm::max(m.roughness, 0.0001f);
+    float roughness = glm::max(materialRoughness, 0.0001f);
     float alpha = roughness * roughness;
     float alpha2 = glm::max(alpha * alpha, 0.02f);
 
@@ -543,9 +545,9 @@ __host__ __device__ glm::vec3 diffuseBRDF(
     glm::vec3 wo,
     glm::vec3 wi,
     glm::vec3 normal,
-    const Material &m
+    glm::vec3 albedo
 )
 {
-    return m.color;
+    return albedo;
 }
 

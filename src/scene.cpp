@@ -54,6 +54,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
         newMaterial.metallic = 0.0f;
         newMaterial.subsurface = 0.0f;
         newMaterial.absorptionMultiplier = 0.0f;
+        newMaterial.pattern = -1.0f;
         newMaterial.hasReflective = false;
         newMaterial.hasRefractive = false;
 
@@ -91,6 +92,13 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
             newMaterial.subsurface  = p["SUBSURFACE"];
             newMaterial.roughness = p["ROUGHNESS"];
+        }
+        else if (p["TYPE"] == "Procedural")
+        {
+            const auto& col = p["RGB"];
+            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.pattern  = p["PATTERN"];
+            newMaterial.hasReflective = true;
         }
 
         MatNameToID[name] = materials.size();

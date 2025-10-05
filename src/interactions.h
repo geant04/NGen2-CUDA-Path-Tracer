@@ -52,7 +52,7 @@ __host__ __device__ glm::vec3 diffuseBRDF(
     glm::vec3 wo,
     glm::vec3 wi,
     glm::vec3 normal,
-    const Material &m
+    glm::vec3 albedo
 );
 
 __host__ __device__ void transmitMediumDiffusionBRDF(
@@ -74,6 +74,7 @@ __host__ __device__ void transmitMediumBRDF(
     glm::vec3 wi,
     glm::vec3 normal,
     float t,
+    const Material &m,
     thrust::default_random_engine &rng,
     thrust::uniform_real_distribution<float> &u01
 );
@@ -83,7 +84,7 @@ __host__ __device__ glm::vec3 dielectricSpecularBRDF(
     glm::vec3 wi,
     glm::vec3 normal,
     glm::vec3 microNormal,
-    const Material &m
+    float materialRoughness
 );
 
 __host__ __device__ glm::vec3 specularBTDF(

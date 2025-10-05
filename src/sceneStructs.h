@@ -82,6 +82,9 @@ struct Material
     float metallic;
     float subsurface;
     float absorptionMultiplier;
+
+    // Procedural stuff
+    float pattern;
 };
 
 struct Camera

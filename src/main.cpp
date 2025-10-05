@@ -302,7 +302,20 @@ void RenderImGui()
 
     //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
     //    counter++;
-    //ImGui::SameLine();
+    ImGui::Text("Camera Eye: (%.3f, %.3f, %.3f", 
+        scene->state.camera.position.x, 
+        scene->state.camera.position.y,
+        scene->state.camera.position.z);
+    ImGui::Text("Camera Look At: (%.3f, %.3f, %.3f", 
+        scene->state.camera.lookAt.x, 
+        scene->state.camera.lookAt.y,
+        scene->state.camera.lookAt.z);    
+    ImGui::Text("Camera Up: (%.3f, %.3f, %.3f", 
+        scene->state.camera.up.x, 
+        scene->state.camera.up.y,
+        scene->state.camera.up.z);
+
+
     //ImGui::Text("counter = %d", counter);
     ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

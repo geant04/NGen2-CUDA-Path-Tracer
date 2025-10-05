@@ -217,6 +217,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, GuiD
         segment.ray.origin = cam.position;
         segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
         segment.radiance = glm::vec3(0.0f);
+        segment.medium = VACUUM;
 
         glm::vec2 offset = glm::vec2(0.0f);
 
@@ -501,7 +502,6 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
         PathSegment iterationPath = iterationPaths[index];
 
         glm::vec3 outColor = iterationPath.color * iterationPath.radiance;
-        // outColor = pow(outColor, glm::vec3(1.0f / 2.2f));
 
         image[iterationPath.pixelIndex] += outColor;
     }
