@@ -1,15 +1,6 @@
 CUDA Path Tracer
 ================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
-
-* Anthony Ge
-  * [LinkedIn](https://www.linkedin.com/in/anthonyge/), [personal website](https://www.geant.pro)
-* Tested on: Windows 11, i9-13900H @ 2600 Mhz 16GB, NVIDIA 
-GeForce RTX 4070 Laptop GPU 8GB (personal)
-<br>
-<br>
-
 <p style="text-align: center;">
 <img src="img/thumb.png">
 <p>
@@ -20,6 +11,12 @@ GeForce RTX 4070 Laptop GPU 8GB (personal)
 <td><img src="img/subsurfBack.png"></td>
 </tr>
 </table>
+
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
+* Anthony Ge
+  * [LinkedIn](https://www.linkedin.com/in/anthonyge/), [personal website](https://www.geant.pro)
+* Tested on: Windows 11, i9-13900H @ 2600 Mhz 16GB, NVIDIA 
+GeForce RTX 4070 Laptop GPU 8GB (personal)
 
 <!-- <img src="img/withDOF.png" height="500">
 <img src="img/subsurfBack.png" height="500">
