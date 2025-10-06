@@ -2,7 +2,7 @@ CUDA Path Tracer
 ================
 
 <p style="text-align: center;">
-<img src="img/thumb.png">
+<img src="img/subsurf.png">
 <p>
 
 <table>
