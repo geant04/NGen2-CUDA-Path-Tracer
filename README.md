@@ -1,23 +1,31 @@
 CUDA Path Tracer
 ================
 
-<p style="text-align: center;">
-<img src="img/subsurf4.png">
-<img src="img/subsurf.png">
-<p>
-
-<table>
-<tr>
-<td><img src="img/studio.png"></td>
-<td><img src="img/subsurfBack.png"></td>
-</tr>
-</table>
-
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 * Anthony Ge
   * [LinkedIn](https://www.linkedin.com/in/anthonyge/), [personal website](https://www.geant.pro)
 * Tested on: Windows 11, i9-13900H @ 2600 Mhz 16GB, NVIDIA 
 GeForce RTX 4070 Laptop GPU 8GB (personal)
+
+
+<p style="text-align: center;">
+<img src="img/subsurf4.png">
+<p>
+
+<table>
+<tr>
+<td><img src="img/theGang.png"></td>
+<td><img src="img/subsurfBack.png"></td>
+</tr>
+<tr>
+<td><img src="img/subsurf.png"></td>
+<td><img src="img/studio.png"></td>
+</tr>
+</table>
+
+<img src="img/bonkle2.png">
+
+
 
 <!-- <img src="img/withDOF.png" height="500">
 <img src="img/subsurfBack.png" height="500">
@@ -323,5 +331,19 @@ There were a lot of frustrating moments caused by the base code that I assumed j
 - https://pbr-book.org/3ed-2018/Monte_Carlo_Integration/Russian_Roulette_and_Splitting (Russian Roulette)
 - https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 
-
 ### Bloopers
+<img src="img/infection.png">
+
+*Happened when working on subsurface... Remember to reset your medium when generating rays.*
+
+<img src="img/squareRays.png">
+
+*Was trying to get PBR to work on the cube...*
+
+<img src="img/brokenEnvMap.png">
+
+*Broken environment map. Actually looks pretty neat.*
+
+<img src="img/dofbug.png">
+
+*I think this happened when I was working on DOF. I don't even know what.*
