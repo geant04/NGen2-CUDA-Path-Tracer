@@ -29,6 +29,8 @@ struct GuiDataSettings
     float apertureDOF = 2.0f;
     bool useDOF = false;
 
+    bool useACES = false;
+
     bool useAA = true;
     bool usePartition = false;
     bool useMaterialSort = false;

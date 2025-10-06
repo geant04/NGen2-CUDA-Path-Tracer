@@ -289,6 +289,9 @@ void RenderImGui()
     ImGui::SliderFloat("Focal length", &imguiData->settings.focalLengthDOF, 0.0f, 10.0f);
     ImGui::SliderFloat("Aperture size", &imguiData->settings.apertureDOF, 0.0f, 1.0f);
 
+    ImGui::Text("Tonemapping");
+    ImGui::Checkbox("Use ACES tonemapping", &imguiData->settings.useACES);
+
     ImGui::Text("Debug Toggles");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Use Debug Shader", &imguiData->settings.useDebugShader);
 

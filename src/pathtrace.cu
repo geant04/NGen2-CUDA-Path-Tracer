@@ -493,7 +493,7 @@ __global__ void shadeFakeMaterial(
 }
 
 // Add the current iteration's output to the overall image
-__global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths)
+__global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths, GuiDataSettings settings)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -502,6 +502,14 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
         PathSegment iterationPath = iterationPaths[index];
 
         glm::vec3 outColor = iterationPath.color * iterationPath.radiance;
+        
+        float a = 2.51f;
+        float b = 0.03f;
+        float c = 2.43f;
+        float d = 0.59f;
+        float e = 0.14f;
+        // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+        outColor = (settings.useACES) ? glm::clamp((outColor*(a*outColor+b))/(outColor*(c*outColor+d)+e), 0.0f, 1.0f) : outColor;
 
         image[iterationPath.pixelIndex] += outColor;
     }
@@ -714,7 +722,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     // Assemble this iteration and apply it to the image
     dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-    finalGather<<<numBlocksPixels, blockSize1d>>>(pixelcount, dev_image, dev_paths);
+    finalGather<<<numBlocksPixels, blockSize1d>>>(pixelcount, dev_image, dev_paths, settings);
 
     ///////////////////////////////////////////////////////////////////////////
 
