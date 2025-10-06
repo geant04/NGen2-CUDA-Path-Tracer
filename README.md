@@ -344,9 +344,17 @@ There were a lot of frustrating moments caused by the base code that I assumed j
 - https://pbr-book.org/3ed-2018/Monte_Carlo_Integration/Russian_Roulette_and_Splitting (Russian Roulette)
 - https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 
+
+### Models/HDRIs used
+- https://sketchfab.com/3d-models/lego-bionicle-tahu-mata-model-8d3ce883dd02416c8803667fe1f226be
+- https://sketchfab.com/3d-models/daft-punk-1e274a65d92c48b089053bfd9eadcc42
+- https://polyhaven.com/a/brown_photostudio_02
+- https://polyhaven.com/a/qwantani_dusk_2
+- Teapot and Dragon from https://casual-effects.com/data/
+- Avocado GLTF from https://github.com/KhronosGroup/glTF-Sample-Assets
+
 ### Bonus Renders
 ![bonkle](img/bonkle.png)
-
 
 ### Bloopers
 <img src="img/infection.png">
