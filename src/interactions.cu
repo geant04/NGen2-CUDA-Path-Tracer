@@ -167,7 +167,7 @@ __host__ __device__ void sampleRay(
         bool isTile = (a + b) % 2  == 0;
 
         surfaceAlbedo = isTile ? surfaceAlbedo : glm::vec3(0.35f, 0.35f, 0.35f);
-        surfaceRoughness = isTile ? 0.01f : 0.50f;
+        surfaceRoughness = isTile ? 0.01f : 0.01f;
     }
 
 

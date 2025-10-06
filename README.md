@@ -11,7 +11,7 @@ GeForce RTX 4070 Laptop GPU 8GB (personal)
 <br>
 
 <p style="text-align: center;">
-<img src="img/coolRender.png">
+<img src="img/thumb.png">
 <p>
 
 <table>
@@ -20,10 +20,6 @@ GeForce RTX 4070 Laptop GPU 8GB (personal)
 <td><img src="img/subsurfBack.png"></td>
 </tr>
 </table>
-
-<p style="text-align: center;">
-<img src="img/withDOF.png" height="350px">
-<p>
 
 <!-- <img src="img/withDOF.png" height="500">
 <img src="img/subsurfBack.png" height="500">
