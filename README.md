@@ -248,6 +248,7 @@ With the **open scene,** however, the results are much more dramatic, observing 
 The lower the threshold is, the more like ```p > threshold```, resulting in termination. This use of early termination can be particularly helpful for stream compaction since this will cause more divergence.
 
 ![rr](img/russianRoulette.png)
+
 With Russian Roulette, **I observed a slight ~0.9ms reduction improvement in the Cornell scene, but an unfortunate 3.8ms increase in the open scene.** For the Cornell, it's more likely that rays are unlikely to reach the light source at the top, so the further the bounces occur, the higher the termination threshold becomes, resulting in better rays terminated. I think the opposite happens for the open scene. 
 
 ### Compounded Stream Compaction + Russian Roulette
@@ -263,10 +264,12 @@ Material sort aims to re-order paths by material ID, making more likely that pat
 
 
 ![sorting](img/sort.png)
+
 Unfortunately, for both Cornell and Open, material sorting causes worse performance, observing a 62.9ms and 77.1ms increase respectively. Given that there are far more complex materials in Open Scene (Cornell has mostly diffuse with the exception of a microfacet + transmissive, so 3 in total), featuring 10 unique material IDs, there is still a relative improvement from 1.9x worse perf compared to 3.04x in Cornell. 
 
 
 ![sorting scale](img/materialScale.png)
+
 To fully assess its impact scaled against more materials used, I benchmarked against the Open scene with just one material instead, witnessing a 9.2ms improvement by using more materials with sorting enabled. 
 
 **So overall, the material sort *does* perform better for scenes with more materials, but the overhead from sorting is significantly greater than the reductions achieved from lowering divergence.**
