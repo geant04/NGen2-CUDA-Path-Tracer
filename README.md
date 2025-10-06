@@ -32,6 +32,19 @@ GeForce RTX 4070 Laptop GPU 8GB (personal)
 <img src="img/studio.png" height="500"> -->
 
 ## What is a path tracer?
+A path tracer is a program that renders images using path tracing to simulate how light moves and interacts with a scene, creating highly photo-realistic images. This is done through Monte-Carlo integration to simulate hundreds of light rays bouncing around a scene, then accumulating and averaging their contributions into an output per pixel. This can be thought of tracing a light beam across multiple bounces until it eventually hits the camera.
+
+The rendering equation is defined as:
+
+$L_o(x, \omega_o) = L_e(x, \omega_o) + \int_{H^2} f_r(x, \omega_i, \omega_o) \, L_i(x, \omega_i) \, (\omega_i \cdot n) \, d\omega_i$
+
+Where $L_o$ can be thought of the light reflectance out of a point defined at $x$ with a viewing direction of $\omega_o$. Our goal is to determine the final $L_o$ entering our camera, where we at each intersected point, we estimate and evaluate the hemisphere integral around $x$ for all directions $d\omega_i$. 
+ 
+At a point $x$, we want to determine all light contributions for every pair of $\omega_i, \omega_o$ directions based on $f_r$, known as the BSDF, and the incoming light energy $L_i$, determined from incoming rays hitting $x$.
+
+The goal of the project is build a path tracer in CUDA to render highly photo-realistic images using this equation as a base. My features, then, include several implementations of different BRDFs and BTDFs, accurate lens-based camera effects like depth of field, and optimized ray-intersection traversal optimizations. 
+
+Features listed in no particular order.
 
 ## Req. Features
 ### Jittered Anti-Aliasing
@@ -330,6 +343,10 @@ There were a lot of frustrating moments caused by the base code that I assumed j
 - https://pharr.org/matt/blog/2022/05/06/trowbridge-reitz (GGX might just be the same as Trowbridge-Reitz.)
 - https://pbr-book.org/3ed-2018/Monte_Carlo_Integration/Russian_Roulette_and_Splitting (Russian Roulette)
 - https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+
+### Bonus Renders
+![bonkle](img/bonkle.png)
+
 
 ### Bloopers
 <img src="img/infection.png">
