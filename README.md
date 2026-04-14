@@ -282,12 +282,7 @@ Material sort aims to re-order paths by material ID, making more likely that pat
 
 Unfortunately, for both Cornell and Open, material sorting causes worse performance, observing a 62.9ms and 77.1ms increase respectively. Given that there are far more complex materials in Open Scene (Cornell has mostly diffuse with the exception of a microfacet + transmissive, so 3 in total), featuring 10 unique material IDs, there is still a relative improvement from 1.9x worse perf compared to 3.04x in Cornell. 
 
-
-![sorting scale](img/materialScale.png)
-
-To fully assess its impact scaled against more materials used, I benchmarked against the Open scene with just one material instead, witnessing a 9.2ms improvement by using more materials with sorting enabled. 
-
-**So overall, the material sort *does* perform better for scenes with more materials, but the overhead from sorting is significantly greater than the reductions achieved from lowering divergence.**
+For material sorting to be beneficial, the material shading itself would have to be so expensive that it would outweigh the overhead from sorting. This could possibly happen if we're evaluating textured materials, in which texture fetching could easily become a major bottleneck due to expensive texture stalls - thus sorting can achieve optimal texture access coherency, saving time.
 
 ---
 ## Improving Ray Traversal with Bounding Volume Hierarchies (BVH)
